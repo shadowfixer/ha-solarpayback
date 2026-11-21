@@ -158,6 +158,9 @@ export class HAAPI {
   }
 
   // Internal: compute monthly sums from HA statistics API response (period=day)
+  // HA returns RUNNING CUMULATIVE sums per day (each day's 'sum' = total from start of tracking).
+  // We must compute deltas: day_energy[i] = stats[i].sum - stats[i-1].sum (first day = its sum).
+  // Month total = sum of daily deltas in that month.
   _computeMonthlyFromStatistics(stats, entityIds) {
     const monthly = new Map();
     entityIds.forEach(id => monthly.set(id, new Map()));
@@ -168,9 +171,14 @@ export class HAAPI {
 
       const monthMap = monthly.get(entityId);
 
-      entityStats.forEach(dayStat => {
-        // dayStat has: start, end, sum, mean, min, max
-        // For daily-reset cumulative counters, 'sum' = total energy that day
+      // Sort by start time to ensure chronological order
+      const sortedStats = [...entityStats].sort((a, b) =>
+        new Date(a.start) - new Date(b.start)
+      );
+
+      let prevSum = null;
+
+      sortedStats.forEach(dayStat => {
         const sum = parseFloat(dayStat.sum);
         if (isNaN(sum)) return;
 
@@ -178,7 +186,19 @@ export class HAAPI {
         const monthKey = startDate.getFullYear() + '-' +
                          String(startDate.getMonth() + 1).padStart(2, '0');
 
-        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + sum);
+        // Compute daily energy as delta from previous day's cumulative sum
+        let dayEnergy;
+        if (prevSum === null) {
+          // First row: cumulative from zero
+          dayEnergy = sum;
+        } else {
+          dayEnergy = sum - prevSum;
+          // Guard against negative deltas (counter resets, data issues)
+          if (dayEnergy < 0) dayEnergy = 0;
+        }
+        prevSum = sum;
+
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + dayEnergy);
       });
     });
 
