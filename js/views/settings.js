@@ -9,6 +9,7 @@ export class SettingsView {
   constructor(app) {
     this.app = app;
     this.entityMap = {};
+    this._bound = false;
   }
 
   async render() {
@@ -137,6 +138,9 @@ export class SettingsView {
   }
 
   bindEvents() {
+    if (this._bound) return; // Bind once per view instance — re-rendering re-calls this and would stack duplicate listeners (each click then fires the submit handler N times, saving N duplicate grid events)
+    this._bound = true;
+
     // System form
     document.getElementById('formSystem').addEventListener('submit', async (e) => {
       e.preventDefault();
