@@ -158,7 +158,10 @@ export const Calc = {
 
     for (const month of months.sort((a, b) => a.month.localeCompare(b.month))) {
       const tariff = await Calc.getTariffForMonth(month.month);
-      const calculated = Calc.calculateMonthly(month, tariff, systemCost, mcsAnnual, installDate);
+      // Fetch grid events for this month and add to month data
+      const gridEventIncome = await Calc.getGridEventsForMonth(month.month);
+      const monthWithGridEvents = { ...month, gridEvents: gridEventIncome };
+      const calculated = Calc.calculateMonthly(monthWithGridEvents, tariff, systemCost, mcsAnnual, installDate);
       results.push(calculated);
     }
 

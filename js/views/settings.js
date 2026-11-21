@@ -179,7 +179,7 @@ export class SettingsView {
     });
 
     // Entity mapping
-    container = document.getElementById('entityMapping');
+    const container = document.getElementById('entityMapping');
     container.addEventListener('change', async (e) => {
       if (e.target.matches('.entity-input')) {
         this.entityMap[e.target.dataset.key] = e.target.value;
