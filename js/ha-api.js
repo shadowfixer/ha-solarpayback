@@ -94,20 +94,18 @@ export class HAAPI {
     }
   }
 
-  // Fetch persisted data from HA's /config/ha-sunback-data.json via a helper sensor or file read
-  // Since we can't directly read files via REST, we expose the data through a file sensor or
-  // the app can fetch it via a REST command. For simplicity, we'll use the REST API to read
-  // a sensor that exposes the file content, or the user can add a rest_command.
-  // For now, provide a method that tries to read from a known sensor entity.
+  // Fetch persisted data from HA command_line sensor exposing /config/ha-sunback-data.json
+  // The sensor's json_attributes carry gridEvents + tariffHistory arrays
   async fetchPersistedData() {
     if (!this.isConfigured()) return null;
     try {
-      // Try to read from a sensor entity that exposes the JSON file content
-      // User should create a file sensor: sensor.ha_sunback_data
       const state = await this.getState('sensor.ha_sunback_data');
-      if (state && state.state && state.state !== 'unknown' && state.state !== 'unavailable') {
-        return JSON.parse(state.state);
-      }
+      if (!state) return null;
+      const attrs = state.attributes || {};
+      const gridEvents = attrs.gridEvents || [];
+      const tariffHistory = attrs.tariffHistory || [];
+      if (!gridEvents.length && !tariffHistory.length) return null;
+      return { gridEvents, tariffHistory };
     } catch (e) {
       console.warn('HA fetch persisted data failed:', e.message);
     }
