@@ -39,6 +39,22 @@ class HASunBackApp {
 
     this.initialized = true;
     console.log('HA SunBack initialized');
+
+    // If HA is configured, auto-connect and sync historical data
+    if (haApi.isConfigured()) {
+      try {
+        await haApi.init();
+        const resp = await haApi.testConnection();
+        if (resp) {
+          this.showToast('Connected to Home Assistant');
+          // Sync historical monthly data from HA
+          await this.views.overview.refreshFromHA();
+        }
+        this.refreshAllViews();
+      } catch (e) {
+        this.showConnectionError(e.message);
+      }
+    }
   }
 
   setupRouting() {

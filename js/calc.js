@@ -26,17 +26,26 @@ export const Calc = {
     // Solar used = Generated - Exported
     const solarUsed = Math.max(0, generated - exported);
 
-    // 1. Solar used value (at day rate)
+    // 1. Solar used value (at day rate) - self-consumption avoids buying at day rate
     const solarUsedValue = solarUsed * dayRate;
 
     // 2. Export income
     const exportIncome = exported * exportRate;
 
-    // 3. Cheap-rate battery saving
-    // Battery charged on night rate, discharged to offset day rate
-    // Saving per kWh = (dayRate * efficiency) - nightRate
-    const batterySavingPerKwh = (dayRate * Calc.BATTERY_EFFICIENCY) - nightRate;
-    const batterySaving = Math.max(0, batCharge) * Math.max(0, batterySavingPerKwh);
+    // 3. Battery savings (conservative)
+    // Only the portion of battery discharge that plausibly offsets peak (day) rate counts.
+    // Cap by min(charge, discharge) since you can't discharge more than you charged.
+    // Apply round-trip efficiency (90%): usable discharge = charge * efficiency.
+    // Saving per kWh discharged = dayRate - nightRate (buy cheap at night, avoid expensive day).
+    // We only count savings on the amount that was actually charged at night rate.
+    // Conservative approach: usable kWh = min(batCharge * efficiency, batDischarge)
+    // But we don't know what % of batCharge was at night rate vs solar.
+    // Assume ALL battery charge could be from night rate (upper bound).
+    // Real savings = min(batCharge * BATTERY_EFFICIENCY, batDischarge) * (dayRate - nightRate)
+    // This is the arbitrage: buy at nightRate, sell/avoid at dayRate.
+    const usableDischarge = Math.min(batCharge * Calc.BATTERY_EFFICIENCY, batDischarge);
+    const batterySavingPerKwh = Math.max(0, dayRate - nightRate); // only the spread
+    const batterySaving = usableDischarge * batterySavingPerKwh;
 
     // 4. Grid events (manual entries)
     const gridEventIncome = gridEvents;
@@ -91,7 +100,7 @@ export const Calc = {
     return results;
   },
 
-  // Estimate payback date
+  // Estimate payback date using seasonal projection
   estimatePaybackDate(months, systemCost, installDate) {
     const paybackMonths = Calc.calculatePayback(months, systemCost);
     const last = paybackMonths[paybackMonths.length - 1];
@@ -102,12 +111,17 @@ export const Calc = {
       return new Date(); // already paid back
     }
 
-    // Project forward using average monthly saving
-    const avgMonthly = last.cumulative / paybackMonths.length;
-    if (avgMonthly <= 0) return null;
+    // Project forward using seasonal-weighted average monthly saving
+    // Get monthly totalSaved values in chronological order
+    const monthlySaved = paybackMonths.map(m => m.totalSaved);
+
+    // Project annual saving using seasonal weights
+    const projectedAnnualSaving = Utils.projectAnnual(monthlySaved, installDate);
+
+    if (projectedAnnualSaving <= 0) return null;
 
     const remaining = systemCost - last.cumulative;
-    const monthsNeeded = remaining / avgMonthly;
+    const monthsNeeded = remaining / (projectedAnnualSaving / 12);
     const lastMonth = Utils.parseMonthKey(last.month);
     const projected = new Date(lastMonth);
     projected.setMonth(projected.getMonth() + Math.ceil(monthsNeeded));

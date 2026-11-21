@@ -2,6 +2,7 @@
 
 import { Utils } from '../utils.js';
 import { haApi } from '../ha-api.js';
+import { storage } from '../storage.js';
 
 export class LiveView {
   constructor(app) {
@@ -132,16 +133,66 @@ export class LiveView {
   }
 
   updateSavingNow() {
-    // Calculate current saving rate
-    // This is simplified - real calc would use current tariff
-    const pv = parseFloat(document.getElementById('livePV')?.textContent) || 0;
-    const grid = parseFloat(document.getElementById('liveGrid')?.textContent) || 0;
-    const load = parseFloat(document.getElementById('liveLoad')?.textContent) || 0;
+    // Calculate current saving rate using current tariff and live power values
+    // Get current tariff from storage
+    this.loadCurrentTariff().then(tariff => {
+      if (!tariff) {
+        const el = document.getElementById('liveSaving');
+        if (el) el.textContent = '£—/h (no tariff)';
+        return;
+      }
 
-    // Rough estimate: PV used * day rate + export * export rate
-    // This is very approximate without current tariff
-    const el = document.getElementById('liveSaving');
-    if (el) el.textContent = '£—/h'; // Would need current rates
+      const dayRate = tariff.day / 100;      // £/kWh
+      const nightRate = tariff.night / 100;  // £/kWh
+      const exportRate = tariff.export / 100; // £/kWh
+
+      // Get live power values in kW
+      const pv = this.getPowerValue('livePV');       // kW
+      const grid = this.getPowerValue('liveGrid');   // kW (positive = import, negative = export)
+      const load = this.getPowerValue('liveLoad');   // kW
+
+      // Estimate hourly saving:
+      // - Self-consumed PV: min(PV, load) * dayRate (avoids buying at day rate)
+      // - Export: max(0, -grid) * exportRate (income from export)
+      // - If importing from grid while PV available, that's a loss but complex to calc
+      // Simple conservative estimate:
+      const selfUsed = Math.min(pv, load);  // kW
+      const exportPower = Math.max(0, -grid); // kW (grid negative = export)
+      // Note: battery charge/discharge not included for simplicity
+
+      const savingPerHour = (selfUsed * dayRate) + (exportPower * exportRate);
+
+      const el = document.getElementById('liveSaving');
+      if (el) {
+        if (savingPerHour > 0) {
+          el.textContent = '£' + savingPerHour.toFixed(2) + '/h';
+          el.classList.add('positive');
+          el.classList.remove('negative');
+        } else {
+          el.textContent = '£' + savingPerHour.toFixed(2) + '/h';
+          el.classList.add('negative');
+          el.classList.remove('positive');
+        }
+      }
+    }).catch(() => {
+      const el = document.getElementById('liveSaving');
+      if (el) el.textContent = '£—/h (error)';
+    });
+  }
+
+  async loadCurrentTariff() {
+    const settings = await storage.getAllSettings();
+    // Use the most recent tariff entry, or default
+    const tariffs = await storage.getAllTariffs();
+    if (tariffs.length > 0) {
+      return tariffs[tariffs.length - 1];
+    }
+    // Default fallback matching Octopus Agile/Tracker
+    return {
+      day: 29.82,
+      night: 7.62,
+      export: 0
+    };
   }
 
   renderDiagram() {

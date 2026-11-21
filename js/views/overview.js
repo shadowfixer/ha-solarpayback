@@ -118,39 +118,63 @@ export class OverviewView {
   }
 
   async refreshFromHA() {
-    // Fetch latest HA data and update current month
+    // Fetch historical HA data for all months from install date to now
+    // and populate monthly data via computeMonthlySums
+    const settings = await storage.getAllSettings();
+    const installDate = settings.installDate || '2026-11-13';
+    const install = new Date(installDate);
     const now = new Date();
-    const monthKey = Utils.monthKey(now);
+
+    // Entity IDs for energy sensors (daily-reset cumulative)
+    const energyEntityIds = [
+      'sensor.garage_foxess_energy_generated',
+      'sensor.garage_foxess_feedin',
+      'sensor.garage_foxess_grid_consumption',
+      'sensor.garage_foxess_bat_charge',
+      'sensor.garage_foxess_bat_discharge',
+      'sensor.garage_foxess_load'
+    ];
 
     try {
-      const states = await haApi.getStates([
-        'sensor.garage_foxess_energy_generated',
-        'sensor.garage_foxess_feedin',
-        'sensor.garage_foxess_grid_consumption',
-        'sensor.garage_foxess_bat_charge',
-        'sensor.garage_foxess_bat_discharge',
-        'sensor.garage_foxess_load'
-      ]);
+      // Get monthly sums from HA history for each entity
+      const monthlySums = await haApi.computeMonthlySums(energyEntityIds, install, now);
 
-      const haData = {};
-      states.forEach((state, id) => {
-        const val = parseFloat(state?.state) || 0;
-        if (id.includes('energy_generated')) haData.generated = val;
-        else if (id.includes('feedin')) haData.exported = val;
-        else if (id.includes('grid_consumption')) haData.gridImport = val;
-        else if (id.includes('bat_charge') && !id.includes('power')) haData.batCharge = val;
-        else if (id.includes('bat_discharge') && !id.includes('power')) haData.batDischarge = val;
-        else if (id.includes('load') && !id.includes('power')) haData.load = val;
+      // monthlySums is { entityId: { 'YYYY-MM': sum, ... }, ... }
+      // Build month data objects by combining across entities
+      const monthsMap = new Map();
+
+      // Determine all month keys present
+      const allMonthKeys = new Set();
+      Object.values(monthlySums).forEach(entityMap => {
+        Object.keys(entityMap).forEach(key => allMonthKeys.add(key));
       });
 
-      // Merge with existing grid events
-      const existing = await storage.getMonth(monthKey);
-      const gridEvents = existing?.gridEvents || 0;
+      // For each month, build the data object
+      for (const monthKey of allMonthKeys) {
+        const existing = await storage.getMonth(monthKey);
+        const gridEvents = existing?.gridEvents || 0;
 
-      await storage.saveMonth(monthKey, { ...haData, gridEvents });
+        const getSum = (entityId) => monthlySums[entityId]?.[monthKey] || 0;
+
+        const haData = {
+          month: monthKey,
+          generated: getSum('sensor.garage_foxess_energy_generated'),
+          exported: getSum('sensor.garage_foxess_feedin'),
+          gridImport: getSum('sensor.garage_foxess_grid_consumption'),
+          batCharge: getSum('sensor.garage_foxess_bat_charge'),
+          batDischarge: getSum('sensor.garage_foxess_bat_discharge'),
+          load: getSum('sensor.garage_foxess_load'),
+          gridEvents
+        };
+
+        await storage.saveMonth(monthKey, haData);
+      }
+
       await this.render();
+      this.app.showToast(`Synced ${allMonthKeys.size} months from HA history`);
     } catch (e) {
       console.error('Failed to refresh from HA:', e);
+      this.app.showToast('HA sync failed: ' + e.message, true);
     }
   }
 }

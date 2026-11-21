@@ -83,13 +83,12 @@ export const Utils = {
   },
 
   // Project annual from partial months using seasonal profile
+  // monthlyData: array of monthly generation values (kWh) in chronological order from install month
+  // installDate: installation date string
+  // Returns projected annual generation (kWh)
   projectAnnual(monthlyData, installDate) {
     const install = new Date(installDate);
     const installMonth = install.getMonth();
-    const installYear = install.getFullYear();
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
 
     let totalWeight = 0;
     let weightedSum = 0;
@@ -99,13 +98,14 @@ export const Utils = {
       const weight = Utils.seasonalWeight(monthIdx);
       if (weight > 0) {
         totalWeight += weight;
-        weightedSum += val * weight;
+        weightedSum += val;
       }
     });
 
     if (totalWeight === 0) return 0;
+    // Weighted average of observed months, scaled to full year (sum of weights = 1)
     const avgWeighted = weightedSum / totalWeight;
-    return avgWeighted / totalWeight; // annualised
+    return avgWeighted;
   },
 
   // Debounce
