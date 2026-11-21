@@ -113,27 +113,88 @@ export class HAAPI {
     return this.request(`/history/period?${params.toString()}`);
   }
 
-  // Get statistics (hourly/daily/monthly aggregates) - if available
-  async getStatistics(entityId, startTime, endTime) {
+  // Get daily long-term statistics for multiple entities
+  // Uses HA's /history/period endpoint with period=day which returns aggregated 'sum' per day
+  // Works beyond the ~10-day raw history window because it reads from the statistics DB
+  async getDailyStatistics(entityIds, startTime, endTime) {
     try {
       const params = new URLSearchParams({
-        entity_id: entityId,
-        start_time: startTime.toISOString(),
+        filter_entity_id: entityIds.join(','),
         end_time: endTime.toISOString(),
-        period: 'month' // or 'day', 'hour'
+        period: 'day'
       });
-      return this.request(`/statistics?${params.toString()}`);
+      if (startTime) params.append('start_time', startTime.toISOString());
+
+      const resp = await this.request(`/history/period?${params.toString()}`);
+
+      // Response format with period=day:
+      // { "entity_id": [ { "start": "2026-11-13T00:00:00+00:00", "end": "...", "sum": 12.5, "mean": ..., "min": ..., "max": ... }, ... ], ... }
+      // Returns an object keyed by entity_id, each value is an array of daily stat objects with 'sum'
+      if (!resp || typeof resp !== 'object') {
+        console.warn('Unexpected statistics response format');
+        return null;
+      }
+      return resp;
     } catch (e) {
-      console.warn('Statistics API not available, falling back to history:', e);
+      console.warn('Daily statistics API not available, falling back to history:', e);
       return null;
     }
   }
 
-  // Compute monthly sums from history data for daily-reset cumulative counters
-  // For each entity: group points by local calendar day, take daily max, sum daily maxes per month
+  // Compute monthly sums using long-term statistics (preferred) with fallback to raw history
+  // For daily-reset cumulative counters: each day's 'sum' from statistics = that day's total energy
+  // Monthly total = sum of daily sums across days in that month
   async computeMonthlySums(entityIds, startDate, endDate) {
+    // First try the long-term statistics path (works beyond ~10 days)
+    const stats = await this.getDailyStatistics(entityIds, startDate, endDate);
+
+    if (stats && Object.keys(stats).length > 0) {
+      return this._computeMonthlyFromStatistics(stats, entityIds);
+    }
+
+    // Fallback: raw history with daily-max aggregation (existing logic)
+    console.log('Falling back to raw history for monthly sums');
+    return this._computeMonthlyFromHistory(entityIds, startDate, endDate);
+  }
+
+  // Internal: compute monthly sums from HA statistics API response (period=day)
+  _computeMonthlyFromStatistics(stats, entityIds) {
+    const monthly = new Map();
+    entityIds.forEach(id => monthly.set(id, new Map()));
+
+    entityIds.forEach(entityId => {
+      const entityStats = stats[entityId];
+      if (!entityStats || !entityStats.length) return;
+
+      const monthMap = monthly.get(entityId);
+
+      entityStats.forEach(dayStat => {
+        // dayStat has: start, end, sum, mean, min, max
+        // For daily-reset cumulative counters, 'sum' = total energy that day
+        const sum = parseFloat(dayStat.sum);
+        if (isNaN(sum)) return;
+
+        const startDate = new Date(dayStat.start);
+        const monthKey = startDate.getFullYear() + '-' +
+                         String(startDate.getMonth() + 1).padStart(2, '0');
+
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + sum);
+      });
+    });
+
+    // Convert to regular object
+    const result = {};
+    monthly.forEach((map, entityId) => {
+      result[entityId] = Object.fromEntries(map);
+    });
+    return result;
+  }
+
+  // Internal: compute monthly sums from raw history (fallback - original logic)
+  // Groups raw points by local calendar day, takes daily max, sums daily maxes per month
+  async _computeMonthlyFromHistory(entityIds, startDate, endDate) {
     const history = await this.getHistoryMulti(entityIds, startDate, endDate);
-    const monthly = new Map(); // entityId -> Map<monthKey, sum>
+    const monthly = new Map();
 
     entityIds.forEach(id => monthly.set(id, new Map()));
 
@@ -142,11 +203,11 @@ export class HAAPI {
       const entityId = entityHistory[0].entity_id;
 
       // Step 1: Group by local calendar day, track max state per day
-      const dailyMax = new Map(); // dayKey (YYYY-MM-DD) -> max state
+      const dailyMax = new Map();
 
       entityHistory.forEach(point => {
         const state = parseFloat(point.state);
-        if (isNaN(state)) return; // skip unavailable, unknown, non-numeric
+        if (isNaN(state)) return;
 
         const date = new Date(point.last_changed);
         const dayKey = date.getFullYear() + '-' +
