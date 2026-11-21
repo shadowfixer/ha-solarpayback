@@ -192,6 +192,28 @@
       </div>
     </section>
 
+    <!-- Payback Projection View -->
+    <section id="view-payback" class="view" hidden aria-labelledby="payback-title">
+      <header class="view-header">
+        <h1 id="payback-title">Payback Projection</h1>
+      </header>
+
+      <!-- Cumulative Savings Chart -->
+      <section class="card" aria-labelledby="cum-title">
+        <h2 id="cum-title">Cumulative Savings — With vs Without Battery</h2>
+        <p class="muted" style="font-size:0.85rem; margin-bottom:12px;">Lines show cumulative savings over time. The horizontal line marks system cost (£9,150). Where each curve crosses = payback point.</p>
+        <div id="cumulativeChart" style="width:100%; max-width:720px;"></div>
+        <div id="paybackDates" class="payback-dates" style="margin-top:12px; display:flex; gap:16px; flex-wrap:wrap; font-size:0.9rem;"></div>
+      </section>
+
+      <!-- Payback Date Movement Chart -->
+      <section class="card" aria-labelledby="movement-title">
+        <h2 id="movement-title">Projected Payback Date Movement</h2>
+        <p class="muted" style="font-size:0.85rem; margin-bottom:12px;">How the estimated payback date shifts as real generation accumulates. Y-axis = projected payback date; X-axis = observation date. Uses UK seasonal weighting for forward projection.</p>
+        <div id="paybackMovementChart" style="width:100%; max-width:720px;"></div>
+      </section>
+    </section>
+
     <!-- Settings View -->
     <section id="view-settings" class="view" hidden aria-labelledby="settings-title">
       <header class="view-header">
@@ -326,6 +348,10 @@
     <a href="#history" class="nav-item" data-view="history">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M9 12h6M9 16h6"/></svg>
       <span>History</span>
+    </a>
+    <a href="#payback" class="nav-item" data-view="payback">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 2l4 4-4 4M8 18l4-4 4 4M3 12h18"/></svg>
+      <span>Payback</span>
     </a>
     <a href="#settings" class="nav-item" data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>

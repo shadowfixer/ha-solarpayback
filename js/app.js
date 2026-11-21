@@ -7,6 +7,7 @@ import { OverviewView } from './views/overview.js';
 import { LiveView } from './views/live.js';
 import { HistoryView } from './views/history.js';
 import { SettingsView } from './views/settings.js';
+import { PaybackView } from './views/payback.js';
 import { Utils } from './utils.js';
 
 class HASunBackApp {
@@ -25,6 +26,7 @@ class HASunBackApp {
     this.views.live = new LiveView(this);
     this.views.history = new HistoryView(this);
     this.views.settings = new SettingsView(this);
+    this.views.payback = new PaybackView(this);
 
     // Set up routing
     this.setupRouting();
