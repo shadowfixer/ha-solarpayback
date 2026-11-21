@@ -77,6 +77,43 @@ export class HAAPI {
     return this.request('/');
   }
 
+  // Call shell_command/ha_sunback_store service to persist data in HA
+  // Payload: { gridEvents: [...], tariffHistory: [...] }
+  // Fire-and-forget: never throws, logs errors only
+  async persistToHA(gridEvents, tariffHistory) {
+    if (!this.isConfigured()) return false;
+    try {
+      await this.request('/services/shell_command/ha_sunback_store', {
+        method: 'POST',
+        body: JSON.stringify({ gridEvents, tariffHistory })
+      });
+      return true;
+    } catch (e) {
+      console.warn('HA persist failed (non-blocking):', e.message);
+      return false;
+    }
+  }
+
+  // Fetch persisted data from HA's /config/ha-sunback-data.json via a helper sensor or file read
+  // Since we can't directly read files via REST, we expose the data through a file sensor or
+  // the app can fetch it via a REST command. For simplicity, we'll use the REST API to read
+  // a sensor that exposes the file content, or the user can add a rest_command.
+  // For now, provide a method that tries to read from a known sensor entity.
+  async fetchPersistedData() {
+    if (!this.isConfigured()) return null;
+    try {
+      // Try to read from a sensor entity that exposes the JSON file content
+      // User should create a file sensor: sensor.ha_sunback_data
+      const state = await this.getState('sensor.ha_sunback_data');
+      if (state && state.state && state.state !== 'unknown' && state.state !== 'unavailable') {
+        return JSON.parse(state.state);
+      }
+    } catch (e) {
+      console.warn('HA fetch persisted data failed:', e.message);
+    }
+    return null;
+  }
+
   // Get entity state
   async getState(entityId) {
     return this.request(`/states/${encodeURIComponent(entityId)}`);

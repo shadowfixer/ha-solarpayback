@@ -1,5 +1,7 @@
 // HA SunBack — IndexedDB Storage Wrapper
 
+import { haApi } from './ha-api.js';
+
 const DB_NAME = 'ha-sunback-db';
 const DB_VERSION = 1;
 
@@ -11,10 +13,14 @@ const STORES = {
   HA_CACHE: 'haCache'
 };
 
+// Key to track if we've attempted HA restore on this device/browser
+const HA_RESTORE_ATTEMPTED_KEY = 'ha-sunback-ha-restore-attempted';
+
 export class Storage {
   constructor() {
     this.db = null;
     this.ready = this.init();
+    this._haSyncPending = false;
   }
 
   // ID generation safe in insecure (http) contexts, where crypto.randomUUID may be undefined
@@ -260,6 +266,130 @@ export class Storage {
         await this.put(STORES.GRID_EVENTS, event);
       }
     }
+  }
+
+  // ==== HA Persistence ====
+
+  // Check if IndexedDB has any grid events or tariff history
+  async _hasLocalData() {
+    const [tariffs, events] = await Promise.all([
+      this.getAll(STORES.TARIFF_HISTORY),
+      this.getAll(STORES.GRID_EVENTS)
+    ]);
+    return tariffs.length > 0 || events.length > 0;
+  }
+
+  // Attempt to restore from HA on first load if IndexedDB is empty
+  // Only runs once per browser (tracked in localStorage)
+  async maybeRestoreFromHA() {
+    // Skip if already attempted in this browser
+    if (localStorage.getItem(HA_RESTORE_ATTEMPTED_KEY) === 'true') {
+      return false;
+    }
+    localStorage.setItem(HA_RESTORE_ATTEMPTED_KEY, 'true');
+
+    // Skip if HA not configured
+    if (!haApi.isConfigured()) {
+      return false;
+    }
+
+    // Skip if we already have local data
+    if (await this._hasLocalData()) {
+      return false;
+    }
+
+    try {
+      const data = await haApi.fetchPersistedData();
+      if (data && (data.gridEvents?.length || data.tariffHistory?.length)) {
+        // Restore into IndexedDB
+        if (data.gridEvents?.length) {
+          for (const event of data.gridEvents) {
+            await this.put(STORES.GRID_EVENTS, event);
+          }
+        }
+        if (data.tariffHistory?.length) {
+          for (const tariff of data.tariffHistory) {
+            await this.put(STORES.TARIFF_HISTORY, tariff);
+          }
+        }
+        console.log('Restored data from HA:', {
+          gridEvents: data.gridEvents?.length || 0,
+          tariffHistory: data.tariffHistory?.length || 0
+        });
+        return true;
+      }
+    } catch (e) {
+      console.warn('HA restore failed (non-blocking):', e.message);
+    }
+    return false;
+  }
+
+  // Sync current grid events + tariff history to HA (fire-and-forget)
+  // Never blocks local save; logs errors only
+  async _syncToHA() {
+    if (this._haSyncPending) return; // Debounce concurrent calls
+    this._haSyncPending = true;
+
+    try {
+      const [gridEvents, tariffHistory] = await Promise.all([
+        this.getAll(STORES.GRID_EVENTS),
+        this.getAll(STORES.TARIFF_HISTORY)
+      ]);
+
+      // Only sync if HA is configured
+      if (haApi.isConfigured()) {
+        await haApi.persistToHA(gridEvents, tariffHistory);
+      }
+    } catch (e) {
+      console.warn('HA sync failed (non-blocking):', e.message);
+    } finally {
+      this._haSyncPending = false;
+    }
+  }
+
+  // Tariff History
+  async saveTariff(tariff) {
+    const id = tariff.id || this._uuid();
+    await this.put(STORES.TARIFF_HISTORY, { ...tariff, id, createdAt: Date.now() });
+    // Fire-and-forget HA sync
+    this._syncToHA();
+    return id;
+  }
+
+  async getAllTariffs() {
+    const tariffs = await this.getAll(STORES.TARIFF_HISTORY);
+    return tariffs.sort((a, b) => a.month.localeCompare(b.month));
+  }
+
+  async deleteTariff(id) {
+    await this.delete(STORES.TARIFF_HISTORY, id);
+    // Fire-and-forget HA sync
+    this._syncToHA();
+  }
+
+  // Grid Events
+  async saveGridEvent(event) {
+    const id = event.id || this._uuid();
+    await this.put(STORES.GRID_EVENTS, { ...event, id, createdAt: Date.now() });
+    // Fire-and-forget HA sync
+    this._syncToHA();
+    return id;
+  }
+
+  async getAllGridEvents() {
+    const events = await this.getAll(STORES.GRID_EVENTS);
+    return events.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getGridEventsForMonth(monthKey) {
+    const events = await this.getAll(STORES.GRID_EVENTS);
+    return events.filter(e => e.date.startsWith(monthKey));
+  }
+
+  async deleteGridEvent(id) {
+    await this.delete(STORES.GRID_EVENTS, id);
+    // Fire-and-forget HA sync
+    this._syncToHA();
   }
 }
 

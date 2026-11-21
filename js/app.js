@@ -51,11 +51,16 @@ class HASunBackApp {
           this.showToast('Connected to Home Assistant');
           // Sync historical monthly data from HA
           await this.views.overview.refreshFromHA();
+          // Restore manual data (grid events + tariff history) from HA if IndexedDB empty
+          await storage.maybeRestoreFromHA();
         }
         this.refreshAllViews();
       } catch (e) {
         this.showConnectionError(e.message);
       }
+    } else {
+      // HA not configured, but still try restore (will skip quickly if not configured)
+      await storage.maybeRestoreFromHA();
     }
   }
 
@@ -195,6 +200,8 @@ class HASunBackApp {
         // Auto-detect entities
         const entities = await haApi.detectFoxEntities();
         console.log('Detected Fox ESS entities:', entities);
+        // Restore manual data from HA if IndexedDB empty
+        await storage.maybeRestoreFromHA();
       }
       this.refreshAllViews();
     } catch (e) {
