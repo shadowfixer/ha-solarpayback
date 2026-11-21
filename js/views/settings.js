@@ -80,15 +80,15 @@ export class SettingsView {
     container.innerHTML = `
       <div class="ge-totals" style="display:flex; gap:24px; margin-bottom:12px; flex-wrap:wrap; font-size:0.9rem;">
         <div class="muted">This month (<strong>${Utils.formatMonth(currentMonthKey)}</strong>):</div>
-        <div class="positive num">${Utils.fmtCurrency(thisMonthTotal)}</div>
+        <div class="positive num">${Utils.fmtCurrency(thisMonthTotal, 2)}</div>
         <div class="muted">All time:</div>
-        <div class="positive num">${Utils.fmtCurrency(allTimeTotal)}</div>
+        <div class="positive num">${Utils.fmtCurrency(allTimeTotal, 2)}</div>
       </div>
       ${events.map(e => `
         <div class="ge-item" data-id="${e.id}">
           <div class="ge-info">
             <span><strong>${e.date}</strong></span>
-            <span class="positive">${Utils.fmtCurrency(e.amount)}</span>
+            <span class="positive">${Utils.fmtCurrency(e.amount, 2)}</span>
             ${e.notes ? `<span class="muted">${e.notes}</span>` : ''}
           </div>
           <div class="ge-actions">
