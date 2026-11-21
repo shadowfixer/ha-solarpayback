@@ -149,15 +149,29 @@ export class SettingsView {
     // Grid event form
     document.getElementById('formGridEvent').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const event = {
+      const newEvent = {
         date: document.getElementById('geDate').value,
         amount: parseFloat(document.getElementById('geAmount').value),
-        notes: document.getElementById('geNotes').value
+        notes: document.getElementById('geNotes').value.trim()
       };
-      await storage.saveGridEvent(event);
-      this.renderGridEvents();
-      this.app.refreshAllViews();
-      this.app.showToast('Grid event added');
+
+      // REQ 2: Duplicate-entry guard — check for existing event with same date + amount (+ notes)
+      const existingEvents = await storage.getAllGridEvents();
+      const isDuplicate = existingEvents.some(existing =>
+        existing.date === newEvent.date &&
+        existing.amount === newEvent.amount &&
+        (existing.notes || '').trim().toLowerCase() === newEvent.notes.toLowerCase()
+      );
+
+      if (isDuplicate) {
+        this.app.showToast('Duplicate grid event - not added', true);
+        return; // Keep form populated so user can adjust
+      }
+
+      await storage.saveGridEvent(newEvent);
+      this.renderGridEvents();            // Visibly update the list immediately
+      this.app.refreshAllViews();         // Refresh other views (overview, etc.)
+      this.app.showToast('Grid event added'); // REQ 1: Clear save confirmation via toast
     });
 
     // HA form
