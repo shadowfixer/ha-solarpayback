@@ -30,7 +30,7 @@ export class SettingsView {
     document.getElementById('sysCost').value = this.settings.systemCost || '9150';
     document.getElementById('sysInstall').value = this.settings.installDate || '2026-11-13';
     document.getElementById('sysMcs').value = this.settings.mcsAnnual || '6390';
-    document.getElementById('sysCapacity').value = this.settings.capacity || '';
+    document.getElementById('sysCapacity').value = this.settings.capacity || '7.35';
   }
 
   async renderTariffList() {

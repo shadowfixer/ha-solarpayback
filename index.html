@@ -204,7 +204,7 @@
         <form id="formSystem" class="form-grid">
           <div class="form-field">
             <label for="sysCost">System Cost (£)</label>
-            <input type="number" id="sysCost" name="cost" step="100" min="0" required>
+            <input type="number" id="sysCost" name="cost" step="1" min="0" required>
           </div>
           <div class="form-field">
             <label for="sysInstall">Install Date</label>
@@ -216,7 +216,7 @@
           </div>
           <div class="form-field">
             <label for="sysCapacity">System Capacity (kWp)</label>
-            <input type="number" id="sysCapacity" name="capacity" step="0.1" min="0">
+            <input type="number" id="sysCapacity" name="capacity" step="0.01" min="0">
           </div>
           <button type="submit" class="btn-primary">Save System Config</button>
         </form>
