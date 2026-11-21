@@ -170,43 +170,6 @@ export class Storage {
     return this.delete(STORES.MONTHLY_DATA, monthKey);
   }
 
-  // Tariff History
-  async saveTariff(tariff) {
-    const id = tariff.id || this._uuid();
-    await this.put(STORES.TARIFF_HISTORY, { ...tariff, id, createdAt: Date.now() });
-    return id;
-  }
-
-  async getAllTariffs() {
-    const tariffs = await this.getAll(STORES.TARIFF_HISTORY);
-    return tariffs.sort((a, b) => a.month.localeCompare(b.month));
-  }
-
-  async deleteTariff(id) {
-    return this.delete(STORES.TARIFF_HISTORY, id);
-  }
-
-  // Grid Events
-  async saveGridEvent(event) {
-    const id = event.id || this._uuid();
-    await this.put(STORES.GRID_EVENTS, { ...event, id, createdAt: Date.now() });
-    return id;
-  }
-
-  async getAllGridEvents() {
-    const events = await this.getAll(STORES.GRID_EVENTS);
-    return events.sort((a, b) => a.date.localeCompare(b.date));
-  }
-
-  async getGridEventsForMonth(monthKey) {
-    const events = await this.getAll(STORES.GRID_EVENTS);
-    return events.filter(e => e.date.startsWith(monthKey));
-  }
-
-  async deleteGridEvent(id) {
-    return this.delete(STORES.GRID_EVENTS, id);
-  }
-
   // HA Cache
   async setCache(key, data, ttlMs = 300000) { // 5 min default
     await this.put(STORES.HA_CACHE, { key, data, expiresAt: Date.now() + ttlMs });
