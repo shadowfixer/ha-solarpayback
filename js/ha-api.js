@@ -176,19 +176,12 @@ export class HAAPI {
     }
   }
 
-  // Compute monthly sums using long-term statistics (preferred) with fallback to raw history
-  // For daily-reset cumulative counters: each day's 'sum' from statistics = that day's total energy
-  // Monthly total = sum of daily sums across days in that month
+  // Compute monthly sums. Uses raw-history daily-max by default (verified correct against
+  // live data). The long-term statistics REST path is NOT used as primary because HA's
+  // /api/history/period returns raw state arrays (not aggregated per-day sums), and these
+  // Fox sensors are total_increasing (lifetime cumulative) rather than daily-reset counters.
   async computeMonthlySums(entityIds, startDate, endDate) {
-    // First try the long-term statistics path (works beyond ~10 days)
-    const stats = await this.getDailyStatistics(entityIds, startDate, endDate);
-
-    if (stats && Object.keys(stats).length > 0) {
-      return this._computeMonthlyFromStatistics(stats, entityIds);
-    }
-
-    // Fallback: raw history with daily-max aggregation (existing logic)
-    console.log('Falling back to raw history for monthly sums');
+    console.log('Computing monthly sums from raw history (daily-max)');
     return this._computeMonthlyFromHistory(entityIds, startDate, endDate);
   }
 
