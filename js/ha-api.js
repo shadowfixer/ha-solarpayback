@@ -129,10 +129,11 @@ export class HAAPI {
     }
   }
 
-  // Compute monthly sums from history data
+  // Compute monthly sums from history data for daily-reset cumulative counters
+  // For each entity: group points by local calendar day, take daily max, sum daily maxes per month
   async computeMonthlySums(entityIds, startDate, endDate) {
     const history = await this.getHistoryMulti(entityIds, startDate, endDate);
-    const monthly = new Map(); // key -> { entityId -> sum }
+    const monthly = new Map(); // entityId -> Map<monthKey, sum>
 
     entityIds.forEach(id => monthly.set(id, new Map()));
 
@@ -140,16 +141,29 @@ export class HAAPI {
       if (!entityHistory || !entityHistory.length) return;
       const entityId = entityHistory[0].entity_id;
 
+      // Step 1: Group by local calendar day, track max state per day
+      const dailyMax = new Map(); // dayKey (YYYY-MM-DD) -> max state
+
       entityHistory.forEach(point => {
         const state = parseFloat(point.state);
-        if (isNaN(state)) return;
+        if (isNaN(state)) return; // skip unavailable, unknown, non-numeric
 
         const date = new Date(point.last_changed);
-        const key = Utils.monthKey(date);
-        const map = monthly.get(entityId);
-        if (map) {
-          map.set(key, (map.get(key) || 0) + state);
+        const dayKey = date.getFullYear() + '-' +
+                       String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(date.getDate()).padStart(2, '0');
+
+        const currentMax = dailyMax.get(dayKey) || 0;
+        if (state > currentMax) {
+          dailyMax.set(dayKey, state);
         }
+      });
+
+      // Step 2: Sum daily maxes by month
+      const monthMap = monthly.get(entityId);
+      dailyMax.forEach((maxState, dayKey) => {
+        const monthKey = dayKey.substring(0, 7); // "YYYY-MM"
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + maxState);
       });
     });
 
