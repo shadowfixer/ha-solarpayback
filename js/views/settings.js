@@ -62,23 +62,40 @@ export class SettingsView {
     const container = document.getElementById('gridEventList');
     const events = await storage.getAllGridEvents();
 
+    // Compute totals
+    const now = new Date();
+    const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const thisMonthTotal = events
+      .filter(e => e.date.startsWith(currentMonthKey))
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+    const allTimeTotal = events.reduce((sum, e) => sum + (e.amount || 0), 0);
+
     if (!events.length) {
       container.innerHTML = '<p class="muted">No grid events recorded.</p>';
       return;
     }
 
-    container.innerHTML = events.map(e => `
-      <div class="ge-item" data-id="${e.id}">
-        <div class="ge-info">
-          <span><strong>${e.date}</strong></span>
-          <span class="positive">${Utils.fmtCurrency(e.amount)}</span>
-          ${e.notes ? `<span class="muted">${e.notes}</span>` : ''}
-        </div>
-        <div class="ge-actions">
-          <button class="btn-danger btn-sm" data-action="delete-grid-event">Delete</button>
-        </div>
+    // Totals row + list
+    container.innerHTML = `
+      <div class="ge-totals" style="display:flex; gap:24px; margin-bottom:12px; flex-wrap:wrap; font-size:0.9rem;">
+        <div class="muted">This month (<strong>${Utils.formatMonth(currentMonthKey)}</strong>):</div>
+        <div class="positive num">${Utils.fmtCurrency(thisMonthTotal)}</div>
+        <div class="muted">All time:</div>
+        <div class="positive num">${Utils.fmtCurrency(allTimeTotal)}</div>
       </div>
-    `).join('');
+      ${events.map(e => `
+        <div class="ge-item" data-id="${e.id}">
+          <div class="ge-info">
+            <span><strong>${e.date}</strong></span>
+            <span class="positive">${Utils.fmtCurrency(e.amount)}</span>
+            ${e.notes ? `<span class="muted">${e.notes}</span>` : ''}
+          </div>
+          <div class="ge-actions">
+            <button class="btn-danger btn-sm" data-action="delete-grid-event">Delete</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
   }
 
   renderHAForm() {
