@@ -17,6 +17,19 @@ export class Storage {
     this.ready = this.init();
   }
 
+  // ID generation safe in insecure (http) contexts, where crypto.randomUUID may be undefined
+  _uuid() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    // Fallback for plain-http contexts (e.g. http://homeassistant.local) - no secure context
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
   async init() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -153,7 +166,7 @@ export class Storage {
 
   // Tariff History
   async saveTariff(tariff) {
-    const id = tariff.id || crypto.randomUUID();
+    const id = tariff.id || this._uuid();
     await this.put(STORES.TARIFF_HISTORY, { ...tariff, id, createdAt: Date.now() });
     return id;
   }
@@ -169,7 +182,7 @@ export class Storage {
 
   // Grid Events
   async saveGridEvent(event) {
-    const id = event.id || crypto.randomUUID();
+    const id = event.id || this._uuid();
     await this.put(STORES.GRID_EVENTS, { ...event, id, createdAt: Date.now() });
     return id;
   }
