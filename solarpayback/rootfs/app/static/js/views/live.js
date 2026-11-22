@@ -183,42 +183,42 @@ export class LiveView {
       </defs>
 
       <!-- PV Panel -->
-      <g transform="translate(40, 40)">
-        <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-        <text x="60" y="35" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">☀ PV</text>
-        <text x="60" y="55" text-anchor="middle" fill="var(--ink)" font-weight="700" font-size="20">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
-        <text x="60" y="75" text-anchor="middle" fill="var(--muted)" font-size="12">Generation</text>
-      </g>
+            <g transform="translate(40, 40)">
+              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+              <text x="60" y="35" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">☀ PV</text>
+              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
+              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">Generation</text>
+            </g>
 
-      <!-- Battery -->
-      <g transform="translate(240, 40)">
-        <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-        <text x="60" y="25" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">🔋 Battery</text>
-        <text x="60" y="50" text-anchor="middle" fill="var(--ink)" font-weight="700" font-size="18">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
-        <text x="60" y="70" text-anchor="middle" fill="var(--muted)" font-size="12">SoC: ${soc.toFixed(0)}%</text>
-        <!-- Battery visual -->
-        <rect x="80" y="15" width="30" height="50" rx="2" fill="none" stroke="var(--ink)" stroke-width="2"/>
-        <rect x="82" y="17" width="26" height="${Math.max(2, soc * 0.46)}" rx="1" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
-      </g>
+            <!-- Battery -->
+            <g transform="translate(240, 40)">
+              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+              <text x="60" y="25" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">🔋 Battery</text>
+              <text x="60" y="50" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="18">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
+              <text x="60" y="70" text-anchor="middle" fill="var(--panel-line)" font-size="12">SoC: ${soc.toFixed(0)}%</text>
+              <!-- Battery visual -->
+              <rect x="80" y="15" width="30" height="50" rx="2" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
+              <rect x="82" y="17" width="26" height="${Math.max(2, soc * 0.46)}" rx="1" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
+            </g>
 
-      <!-- Grid -->
-      <g transform="translate(440, 40)">
-        <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-        <text x="60" y="35" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="14">⚡ Grid</text>
-        <text x="60" y="55" text-anchor="middle" fill="var(--ink)" font-weight="700" font-size="20">${grid >= 0 ? '+' : ''}${Utils.fmtPower(grid * 1000)}</text>
-        <text x="60" y="75" text-anchor="middle" fill="var(--muted)" font-size="12">${grid > 0 ? 'Import' : 'Export'}</text>
-      </g>
+            <!-- Grid -->
+            <g transform="translate(440, 40)">
+              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+              <text x="60" y="35" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="14">⚡ Grid</text>
+              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${grid >= 0 ? '+' : ''}${Utils.fmtPower(grid * 1000)}</text>
+              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">${grid > 0 ? 'Import' : 'Export'}</text>
+            </g>
 
-      <!-- House Load -->
-      <g transform="translate(240, 160)">
-        <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-        <text x="60" y="35" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="14">🏠 House</text>
-        <text x="60" y="55" text-anchor="middle" fill="var(--ink)" font-weight="700" font-size="20">${Utils.fmtPower(load * 1000)}</text>
-        <text x="60" y="75" text-anchor="middle" fill="var(--muted)" font-size="12">Load</text>
-      </g>
+            <!-- House Load -->
+            <g transform="translate(240, 160)">
+              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+              <text x="60" y="35" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="14">🏠 House</text>
+              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${Utils.fmtPower(load * 1000)}</text>
+              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">Load</text>
+            </g>
 
-      <!-- Flow arrows -->
-      <g stroke="var(--ink)" stroke-width="3" fill="none" marker-end="url(#arrow)">
+            <!-- Flow arrows -->
+            <g stroke="var(--panel-line)" stroke-width="3" fill="none" marker-end="url(#arrow)">
         <!-- PV -> Battery -->
         <path d="M160 80 Q200 80 240 80" opacity="${this.batCharge > 0 ? 1 : 0.3}"/>
         <!-- PV -> Grid (export) -->

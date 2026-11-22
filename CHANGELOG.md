@@ -2,6 +2,19 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.3] - 2026-11-22
+
+### Fixed
+- **Live Power Flow diagram**: text inside the navy boxes was dark-on-dark
+  (unreadable/squished). Values/labels are now light (`--on-panel`) with proper
+  contrast against the panel background, and flow arrows use the lighter panel line.
+- **Settings form layout**: long labels (e.g. "MCS Estimated Annual Generation")
+  no longer truncate; inputs have consistent widths/heights with even gutters, and
+  date-input icons are no longer squished.
+- **Layout spacing / alignment**: header top-right buttons (theme + plan) aligned and
+  not crowded; footer nav items evenly spaced with consistent sizing;
+  content no longer clipped behind the bottom nav bar (increased bottom clearance).
+
 ## [1.0.2] - 2026-11-22
 
 ### Fixed
