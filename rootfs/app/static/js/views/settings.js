@@ -24,9 +24,9 @@ export class SettingsView {
   }
 
   renderSystemForm() {
-    document.getElementById('sysCost').value = this.settings.systemCost || '9150';
-    document.getElementById('sysInstall').value = this.settings.installDate || '2026-11-13';
-    document.getElementById('sysMcs').value = this.settings.mcsAnnual || '6390';
+    document.getElementById('sysCost').value = this.settings.systemCost || '0';
+    document.getElementById('sysInstall').value = this.settings.installDate || '';
+    document.getElementById('sysMcs').value = this.settings.mcsAnnual || '0';
     document.getElementById('sysCapacity').value = this.settings.capacity || '7.35';
   }
 
@@ -226,9 +226,9 @@ export class SettingsView {
 
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
-      parseFloat(settings.systemCost) || 9150,
-      parseFloat(settings.mcsAnnual) || 6390,
-      settings.installDate || '2026-11-13'
+      parseFloat(settings.systemCost) || 0,
+      parseFloat(settings.mcsAnnual) || 0,
+      settings.installDate || ''
     );
 
     let y = 20;
@@ -270,9 +270,9 @@ export class SettingsView {
 
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
-      parseFloat(settings.systemCost) || 9150,
-      parseFloat(settings.mcsAnnual) || 6390,
-      settings.installDate || '2026-11-13'
+      parseFloat(settings.systemCost) || 0,
+      parseFloat(settings.mcsAnnual) || 0,
+      settings.installDate || ''
     );
 
     const wb = utils.book_new();
@@ -345,9 +345,9 @@ export class SettingsView {
   async exportCSV() {
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
-      parseFloat(settings.systemCost) || 9150,
-      parseFloat(settings.mcsAnnual) || 6390,
-      settings.installDate || '2026-11-13'
+      parseFloat(settings.systemCost) || 0,
+      parseFloat(settings.mcsAnnual) || 0,
+      settings.installDate || ''
     );
 
     const headers = ['Month', 'Generated', 'Exported', 'Self-Used', 'Grid Import', 'Bat Charge', 'Bat Discharge', 'Grid Events', 'Total Saved', 'vs Estimate'];

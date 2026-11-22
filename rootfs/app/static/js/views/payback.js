@@ -8,9 +8,9 @@ export class PaybackView {
   constructor(app) {
     this.app = app;
     this.monthlyData = [];
-    this.systemCost = 9150;
-    this.mcsAnnual = 6390;
-    this.installDate = '2026-11-13';
+    this.systemCost = 0;
+    this.mcsAnnual = 0;
+    this.installDate = '';
   }
 
   async render() {
@@ -21,9 +21,9 @@ export class PaybackView {
 
   async loadData() {
     const settings = await storage.getAllSettings();
-    this.systemCost = parseFloat(settings.systemCost) || 9150;
-    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 6390;
-    this.installDate = settings.installDate || '2026-11-13';
+    this.systemCost = parseFloat(settings.systemCost) || 0;
+    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
+    this.installDate = settings.installDate || '';
 
     // Use Calc.recalculateAll which already includes grid events in monthly totals
     this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate);

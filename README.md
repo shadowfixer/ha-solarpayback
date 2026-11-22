@@ -15,48 +15,21 @@ A self-hosted, privacy-first solar payback dashboard for Home Assistant. Styled 
 
 ## Quick Start
 
-### 1. Prerequisites
+### Install as a Home Assistant add-on
 
-- Home Assistant with **recorder** enabled (for historical data)
-- **Fox ESS Cloud** integration configured
-- **Octopus Energy** integration configured
-- **Long-lived access token** (Settings → Profile → Long-Lived Access Tokens)
+HA SolarPayBack is distributed as a **Home Assistant add-on** (served via HA's ingress,
+with a server-side SQLite store — no per-browser token required).
 
-### 2. Deploy
+1. **Prerequisites:** Home Assistant with the **Fox ESS Cloud** and **Octopus Energy**
+   integrations configured.
+2. **Install:** follow [`INSTALL.md`](INSTALL.md) — add the repo to **Add-on Store →
+   Repositories**, install, start. It appears in the sidebar.
+3. **Open it** in any browser you're logged into HA with — no token to enter.
+4. In **Settings**, set your **system cost**, **install date** and **MCS estimate**, then
+   add your **tariff history** and **grid events** (axle.energy payments) as they occur.
 
-**Option A: Serve from HA `www/` folder (recommended)**
-
-```bash
-# Copy to HA config/www/ha-solarpayback/
-cp -r ha-solarpayback/* /config/www/ha-solarpayback/
-
-# Access at: http://homeassistant.local:8123/local/ha-solarpayback/
-```
-
-**Option B: Any static host**
-
-```bash
-# Netlify, Vercel, GitHub Pages, Cloudflare Pages, etc.
-# Just upload the folder contents
-```
-
-**Option C: Local file (for testing)**
-
-```bash
-# Just open index.html in a browser
-# Note: HA API calls require CORS - use Option A for full functionality
-```
-
-### 3. Configure
-
-1. Open the dashboard
-2. Go to **Settings** (gear icon)
-3. Enter your **HA URL** (e.g., `http://homeassistant.local:8123`)
-4. Paste your **Long-Lived Access Token**
-5. Click **Test & Save Connection**
-6. System config is pre-filled (£9,150, 2026-11-13, 6,390 kWh/yr) — adjust if needed
-7. Add your **tariff history** (day/night/export rates per month)
-8. Add **grid events** (axle.energy payments) as they occur
+> No HA URL or long-lived token is needed in the app — the add-on backend authenticates to
+> Home Assistant server-side using the Supervisor token.
 
 ## Entity Mapping
 
@@ -91,34 +64,28 @@ Matches SolarPayBack's methodology:
 ## Data Flow
 
 ```
-HA REST API (historical) → Monthly aggregates → IndexedDB
-HA WebSocket (live) → Real-time updates → Dashboard
-Manual entries (tariff, grid events) → IndexedDB
+Add-on backend → HA REST API (Supervisor token, server-side) → SQLite (/data/ha-solarpayback.db)
+Frontend → Add-on /api/* (ingress) → Dashboard
+Live view → polls add-on /api/ha/* every ~20s
+Manual entries (tariff, grid events) → SQLite (shared across all browsers/devices)
 All calculations → Client-side JS → Render
 ```
 
-**No data leaves your browser** except to your Home Assistant instance.
+No per-browser token; the add-on backend authenticates to Home Assistant server-side.
+Data is stored in the add-on's SQLite database (persists across restarts, included in HA backups).
 
 ## Project Structure
 
 ```
 ha-solarpayback/
-├── index.html          # Main entry, hash routing
-├── styles.css          # SolarPayBack design tokens + components
-├── theme.js            # Light/dark toggle
-├── js/
-│   ├── app.js          # Main init, routing, state
-│   ├── ha-api.js       # HA REST + WebSocket client
-│   ├── calc.js         # Payback calculations (pure functions)
-│   ├── storage.js      # IndexedDB wrapper
-│   ├── utils.js        # Date, number formatting
-│   └── views/
-│       ├── overview.js # Panels grid, payback summary
-│       ├── live.js     # Real-time power flow
-│       ├── history.js  # Monthly/yearly tables + charts
-│       └── settings.js # Config, tariff history, grid events
-└── assets/
-    └── img/            # Placeholder SVGs
+├── config.yaml          # Add-on manifest (slug ha_solarpayback, ingress)
+├── Dockerfile           # Alpine + Python + FastAPI/uvicorn
+├── INSTALL.md           # Full install instructions
+├── DESIGN.md            # Architecture overview
+└── rootfs/app/
+    ├── run.sh           # Entrypoint (starts uvicorn, waits for Supervisor token)
+    ├── main.py          # FastAPI backend: SQLite + HA REST proxy
+    └── static/          # Frontend (index.html, css, js/views/*) — calls /api/*
 ```
 
 ## Development
@@ -137,10 +104,9 @@ npx serve .
 
 ## Browser Support
 
-- Chrome/Edge 90+
-- Firefox 88+
-- Safari 15+
-- Requires: IndexedDB, WebSocket, ES6 modules, CSS custom properties
+- Chrome/Edge 90+, Firefox 88+, Safari 15+
+- Requires: ES6 modules, CSS custom properties
+- No IndexedDB/WebSocket dependency — data is served from the add-on's backend.
 
 ## Privacy
 

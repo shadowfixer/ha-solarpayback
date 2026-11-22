@@ -21,9 +21,9 @@ export class OverviewView {
 
   async loadData() {
     const settings = await storage.getAllSettings();
-    this.systemCost = parseFloat(settings.systemCost) || 9150;
-    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 6390;
-    this.installDate = settings.installDate || '2026-11-13';
+    this.systemCost = parseFloat(settings.systemCost) || 0;
+    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
+    this.installDate = settings.installDate || '';
 
     this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate);
   }
@@ -121,7 +121,7 @@ export class OverviewView {
     // Fetch historical HA data for all months from install date to now
     // and populate monthly data via the new /api/ha/monthly endpoint (daily-max)
     const settings = await storage.getAllSettings();
-    const installDate = settings.installDate || '2026-11-13';
+    const installDate = settings.installDate || '';
     const install = new Date(installDate);
     const now = new Date();
 

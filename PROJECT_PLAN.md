@@ -37,10 +37,10 @@
 
 | Metric | Entity ID (pattern) |
 |--------|---------------------|
-| Current rate (live) | `sensor.current_rate_electricity_METERSERIAL_MPAN` |
-| Next rate | `sensor.next_rate_electricity_METERSERIAL_MPAN` |
-| Previous rate | `sensor.previous_rate_electricity_METERSERIAL_MPAN` |
-| Off-peak flag | `sensor.off_peak_electricity_METERSERIAL_MPAN` |
+| Current rate (live) | `sensor.current_rate_electricity_<serial>_<mpan>` |
+| Next rate | `sensor.next_rate_electricity_<serial>_<mpan>` |
+| Previous rate | `sensor.previous_rate_electricity_<serial>_<mpan>` |
+| Off-peak flag | `sensor.off_peak_electricity_<serial>_<mpan>` |
 | Accumulative consumption | `sensor.current_accumulative_consumption_electricity_...` |
 | Accumulative cost | `sensor.current_accumulative_cost_electricity_...` |
 | Current demand | `sensor.current_demand_electricity_...` |
@@ -54,9 +54,9 @@
 
 | Setting | Value |
 |---------|-------|
-| System cost | £9,150 |
-| Install date | 2026-11-13 |
-| MCS estimated annual generation | 6,390 kWh/year |
+| System cost | £0 (set in Settings) |
+| Install date | — (set in Settings) |
+| MCS estimated annual generation | (set in Settings) |
 | HA URL | `http://homeassistant.local:8123` |
 | HA Token | (provided, stored locally) |
 | Export rate | TBD (from Octopus SEG) |
