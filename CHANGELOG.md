@@ -13,6 +13,9 @@ All notable changes to the **HA SolarPayBack** add-on.
   enabled in 1.0.1's commit but the version wasn't re-bumped, so HA never re-fetched
   the repo).
 
+> **After updating:** the add-on restarts automatically during the update. If the UI
+> looks stale afterwards, Stop then Start the add-on. Your data in `/data` persists.
+
 ## [1.0.1] - 2026-11-22
 
 ### Added

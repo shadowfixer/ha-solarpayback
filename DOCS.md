@@ -19,6 +19,16 @@ authenticates to Home Assistant using the Supervisor token.
 5. On the Overview, the app auto-syncs historical monthly data from HA when the
    database is empty. Use **Settings → Sync Monthly Data from HA** to resync.
 
+## Updating & restarting
+
+- When you **Update** the add-on, Home Assistant rebuilds and restarts it
+  automatically — in the normal case you don't need to do anything.
+- If, after an update, the UI looks stale or shows the old version, **Stop** the
+  add-on then **Start** it again (in HA, open the add-on → Stop → Start). Your data
+  is safe: it's stored in `/data`, which persists across restarts.
+- If an **Update** button doesn't appear after a new release, remove the repository
+  from the store (⋮ → Repositories) and re-add it, then Update.
+
 ## Entity mapping
 
 The dashboard auto-detects Fox ESS sensors from the `garage_foxess_` prefix:
