@@ -1,4 +1,4 @@
-// HA SunBack — Payback Calculations (pure functions)
+// HA SolarPayBack — Payback Calculations (pure functions)
 
 import { Utils } from './utils.js';
 import { storage } from './storage.js';
@@ -192,4 +192,4 @@ export const Calc = {
   }
 };
 
-window.HASunBackCalc = Calc;
+window.HASolarPayBackCalc = Calc;

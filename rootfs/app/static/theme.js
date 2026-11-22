@@ -1,10 +1,10 @@
-// HA SunBack theme.js — Light/dark theme handler
+// HA SolarPayBack theme.js — Light/dark theme handler
 // Loads in <head> before page draws, so there's no flash of wrong theme.
 
 (function() {
   "use strict";
 
-  var KEY = "ha-sunback-theme";
+  var KEY = "ha-solarpayback-theme";
 
   function saved() {
     try {
@@ -85,5 +85,5 @@
   });
 
   // Export for other modules
-  window.HASunBackTheme = { apply, set, isDark, saved };
+  window.HASolarPayBackTheme = { apply, set, isDark, saved };
 })();

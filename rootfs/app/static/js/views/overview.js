@@ -1,4 +1,4 @@
-// HA SunBack — Overview View
+// HA SolarPayBack — Overview View
 
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';

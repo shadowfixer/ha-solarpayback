@@ -1,4 +1,4 @@
-// HA SunBack — Live View (polling-based, no WebSocket)
+// HA SolarPayBack — Live View (polling-based, no WebSocket)
 
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';

@@ -1,4 +1,4 @@
-// HA SunBack — Live View
+// HA SolarPayBack — Live View
 
 import { Utils } from '../utils.js';
 import { haApi } from '../ha-api.js';

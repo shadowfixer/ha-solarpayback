@@ -1,9 +1,9 @@
-# HA SunBack Add-on — Design Document
+# HA SolarPayBack Add-on — Design Document
 
 ## Overview
-Convert the existing static ES-module web app (`/config/www/ha-sunback/`) into a proper **Home Assistant Add-on** with:
+Convert the existing static ES-module web app (`/config/www/ha-solarpayback/`) into a proper **Home Assistant Add-on** with:
 - **Ingress** — Served via HA's ingress (auth handled by HA, works on all browsers, no per-browser tokens)
-- **Server-side SQLite** — Persistent `/data/ha-sunback.db` for settings, monthly data, tariffs, grid events
+- **Server-side SQLite** — Persistent `/data/ha-solarpayback.db` for settings, monthly data, tariffs, grid events
 - **Backend REST API** — Proxies HA calls using Supervisor token (injected at `/var/run/secrets/hassio-token`), so browsers need NO token
 
 ---
@@ -11,7 +11,7 @@ Convert the existing static ES-module web app (`/config/www/ha-sunback/`) into a
 ## 1. Add-on Structure (HA Convention)
 
 ```
-ha-sunback/
+ha-solarpayback/
 ├── config.yaml              # Add-on manifest
 ├── Dockerfile               # Alpine + Python 3.11
 ├── rootfs/
@@ -48,11 +48,11 @@ ha-sunback/
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Home Assistant OS                            │
 │  ┌──────────────┐    ┌──────────────────────────────────────┐  │
-│  │   Ingress    │───▶│         ha-sunback Add-on            │  │
+│  │   Ingress    │───▶│         ha-solarpayback Add-on            │  │
 │  │  (HA Auth)   │    │  ┌─────────────┐  ┌───────────────┐  │  │
 │  └──────────────┘    │  │   FastAPI   │  │   SQLite      │  │  │
 │        │             │  │  (port 8099)│  │  /data/       │  │  │
-│        │             │  │             │  │  ha-sunback.db│  │  │
+│        │             │  │             │  │  ha-solarpayback.db│  │  │
 │        ▼             │  │  /api/*     │  └───────────────┘  │  │
 │  ┌──────────────┐    │  │  /static/*  │         ▲           │  │
 │  │   Browser    │◀───│  └──────┬──────┘         │           │  │
@@ -70,7 +70,7 @@ ha-sunback/
 **Key points:**
 - **Ingress** handles TLS + HA authentication. The browser gets a session cookie from HA; no token in the browser.
 - **Backend** reads the Supervisor token from `/var/run/secrets/hassio-token` (injected by HA when `homeassistant_api: true`).
-- **SQLite** lives at `/data/ha-sunback.db` — HA mounts `/data` persistently across add-on updates/restarts.
+- **SQLite** lives at `/data/ha-solarpayback.db` — HA mounts `/data` persistently across add-on updates/restarts.
 - **All HA calls** (entity states, history, statistics) go through the backend. The browser never talks to HA directly.
 
 ---
@@ -183,12 +183,12 @@ Example: `https://<ingress-host>/api/settings` — browser sends only cookies, n
 
 1. **Copy add-on to HA** (via Samba/SSH/File Editor):
    ```
-   /addons/ha_sunback/  <-- entire folder contents
+   /addons/ha_solarpayback/  <-- entire folder contents
    ```
 2. **Reload add-ons**: Settings → Add-ons → ⋮ → "Reload"
-3. **Install "HA SunBack"** from Local add-ons list
+3. **Install "HA SolarPayBack"** from Local add-ons list
 4. **Start add-on** (set "Start on boot" = On)
-5. **Open via Ingress**: Click "Open Web UI" in add-on panel, or navigate to `https://homeassistant.local:8123/ingress/ha_sunback/`
+5. **Open via Ingress**: Click "Open Web UI" in add-on panel, or navigate to `https://homeassistant.local:8123/ingress/ha_solarpayback/`
 6. **Configure in Settings view**:
    - System cost / install date / MCS estimate (pre-filled from defaults)
    - Tariff history (day/night/export rates per month)
@@ -246,7 +246,7 @@ Example: `https://<ingress-host>/api/settings` — browser sends only cookies, n
 1. **WebSocket proxy** — Live view currently falls back to polling. A proper `/api/ha/ws` proxy would forward HA's WebSocket through the add-on for true real-time updates.
 2. **Entity auto-detection** — Removed from frontend; could add a backend endpoint `/api/ha/entities/foxess` that returns detected entities.
 3. **Long-term statistics** — `/api/ha/stats` proxies HA's `/api/statistics` but frontend doesn't use it yet (overview still uses daily-max from history).
-4. **Backup/restore** — Add-on doesn't yet implement HA's backup API; `/data/ha-sunback.db` is included in HA full backups automatically.
+4. **Backup/restore** — Add-on doesn't yet implement HA's backup API; `/data/ha-solarpayback.db` is included in HA full backups automatically.
 5. **Rate limiting / auth hardening** — Ingress handles auth; no additional rate limiting added.
 
 ---

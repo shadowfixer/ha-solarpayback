@@ -1,4 +1,4 @@
-// HA SunBack — Payback Projection View
+// HA SolarPayBack — Payback Projection View
 
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
@@ -376,4 +376,4 @@ export class PaybackView {
   }
 }
 
-window.HASunBackPaybackView = PaybackView;
+window.HASolarPayBackPaybackView = PaybackView;

@@ -1,4 +1,4 @@
-// HA SunBack — Main Application (Add-on version)
+// HA SolarPayBack — Main Application (Add-on version)
 // No HA token/config in browser — backend handles HA via Supervisor token
 
 import { storage } from './storage.js';
@@ -10,7 +10,7 @@ import { SettingsView } from './views/settings.js';
 import { PaybackView } from './views/payback.js';
 import { Utils } from './utils.js';
 
-class HASunBackApp {
+class HASolarPayBackApp {
   constructor() {
     this.views = {};
     this.currentView = 'overview';
@@ -37,7 +37,7 @@ class HASunBackApp {
     this.showView('overview');
 
     this.initialized = true;
-    console.log('HA SunBack (add-on) initialized');
+    console.log('HA SolarPayBack (add-on) initialized');
 
     // Auto-load data (settings, tariffs, grid events, monthly data from server)
     this.refreshAllViews();
@@ -197,8 +197,8 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Initialize app
-const app = new HASunBackApp();
-window.HASunBackApp = app;
+const app = new HASolarPayBackApp();
+window.HASolarPayBackApp = app;
 
 // Wait for DOM
 document.addEventListener('DOMContentLoaded', () => app.init());

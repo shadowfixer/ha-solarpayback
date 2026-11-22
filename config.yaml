@@ -1,7 +1,7 @@
-name: "HA SunBack"
+name: "HA SolarPayBack"
 version: "1.0.0"
-slug: "ha_sunback"
-description: "Local solar payback dashboard for Home Assistant — SunBack-style UI with ingress, SQLite backend, and server-side HA API proxy"
+slug: "ha_solarpayback"
+description: "Local solar payback dashboard for Home Assistant — SolarPayBack-style UI with ingress, SQLite backend, and server-side HA API proxy"
 url: "https://github.com/springfall2008/predbat_addon"
 arch:
   - "aarch64"

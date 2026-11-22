@@ -1,4 +1,4 @@
-// HA SunBack — History View
+// HA SolarPayBack — History View
 
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';

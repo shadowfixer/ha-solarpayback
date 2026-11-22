@@ -1,6 +1,6 @@
-# HA SunBack — Local Solar Payback Dashboard
+# HA SolarPayBack — Local Solar Payback Dashboard
 
-A self-hosted, privacy-first solar payback dashboard for Home Assistant. Styled like [SunBack.co.uk](https://sunback.co.uk) but runs entirely locally — no cloud, no accounts, no tracking.
+A self-hosted, privacy-first solar payback dashboard for Home Assistant. Styled like [SolarPayBack.co.uk](https://sunback.co.uk) but runs entirely locally — no cloud, no accounts, no tracking.
 
 ## Features
 
@@ -27,10 +27,10 @@ A self-hosted, privacy-first solar payback dashboard for Home Assistant. Styled 
 **Option A: Serve from HA `www/` folder (recommended)**
 
 ```bash
-# Copy to HA config/www/ha-sunback/
-cp -r ha-sunback/* /config/www/ha-sunback/
+# Copy to HA config/www/ha-solarpayback/
+cp -r ha-solarpayback/* /config/www/ha-solarpayback/
 
-# Access at: http://homeassistant.local:8123/local/ha-sunback/
+# Access at: http://homeassistant.local:8123/local/ha-solarpayback/
 ```
 
 **Option B: Any static host**
@@ -76,7 +76,7 @@ The dashboard auto-detects Fox ESS entities from the `garage_foxess_` prefix. If
 
 ## Payback Calculation
 
-Matches SunBack's methodology:
+Matches SolarPayBack's methodology:
 
 | Component | Formula |
 |-----------|---------|
@@ -102,9 +102,9 @@ All calculations → Client-side JS → Render
 ## Project Structure
 
 ```
-ha-sunback/
+ha-solarpayback/
 ├── index.html          # Main entry, hash routing
-├── styles.css          # SunBack design tokens + components
+├── styles.css          # SolarPayBack design tokens + components
 ├── theme.js            # Light/dark toggle
 ├── js/
 │   ├── app.js          # Main init, routing, state
@@ -154,4 +154,4 @@ MIT — Free for personal use.
 
 ---
 
-**Based on the design of [SunBack.co.uk](https://sunback.co.uk) — rebuilt for Home Assistant integration.**
+**Based on the design of [SolarPayBack.co.uk](https://sunback.co.uk) — rebuilt for Home Assistant integration.**

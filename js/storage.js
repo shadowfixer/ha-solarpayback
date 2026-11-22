@@ -1,8 +1,8 @@
-// HA SunBack — IndexedDB Storage Wrapper
+// HA SolarPayBack — IndexedDB Storage Wrapper
 
 import { haApi } from './ha-api.js';
 
-const DB_NAME = 'ha-sunback-db';
+const DB_NAME = 'ha-solarpayback-db';
 const DB_VERSION = 1;
 
 const STORES = {
@@ -14,7 +14,7 @@ const STORES = {
 };
 
 // Key to track if we've attempted HA restore on this device/browser
-const HA_RESTORE_ATTEMPTED_KEY = 'ha-sunback-ha-restore-attempted';
+const HA_RESTORE_ATTEMPTED_KEY = 'ha-solarpayback-ha-restore-attempted';
 
 export class Storage {
   constructor() {
@@ -357,4 +357,4 @@ export class Storage {
 }
 
 export const storage = new Storage();
-window.HASunBackStorage = Storage;
+window.HASolarPayBackStorage = Storage;

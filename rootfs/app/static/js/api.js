@@ -1,4 +1,4 @@
-// HA SunBack — API Client (replaces ha-api.js)
+// HA SolarPayBack — API Client (replaces ha-api.js)
 // Calls the add-on's backend REST API at /api/*
 // No HA token needed — backend uses Supervisor token server-side
 
@@ -119,4 +119,4 @@ export const api = {
   }
 };
 
-window.HASunBackAPI = api;
+window.HASolarPayBackAPI = api;

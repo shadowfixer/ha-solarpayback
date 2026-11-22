@@ -1,4 +1,4 @@
-// HA SunBack — Main Application
+// HA SolarPayBack — Main Application
 
 import { haApi } from './ha-api.js';
 import { storage } from './storage.js';
@@ -10,7 +10,7 @@ import { SettingsView } from './views/settings.js';
 import { PaybackView } from './views/payback.js';
 import { Utils } from './utils.js';
 
-class HASunBackApp {
+class HASolarPayBackApp {
   constructor() {
     this.views = {};
     this.currentView = 'overview';
@@ -40,7 +40,7 @@ class HASunBackApp {
     this.showView('overview');
 
     this.initialized = true;
-    console.log('HA SunBack initialized');
+    console.log('HA SolarPayBack initialized');
 
     // If HA is configured, auto-connect and sync historical data
     if (haApi.isConfigured()) {
@@ -254,8 +254,8 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Initialize app
-const app = new HASunBackApp();
-window.HASunBackApp = app;
+const app = new HASolarPayBackApp();
+window.HASolarPayBackApp = app;
 
 // Wait for DOM
 document.addEventListener('DOMContentLoaded', () => app.init());

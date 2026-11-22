@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-HA SunBack — HA-side persistence script.
+HA SolarPayBack — HA-side persistence script.
 
 Called via shell_command from Home Assistant.
 Accepts JSON on stdin containing gridEvents + tariffHistory,
-writes atomically to /config/ha-sunback-data.json (temp file + rename).
+writes atomically to /config/ha-solarpayback-data.json (temp file + rename).
 
 Usage:
-  python3 /config/packages/ha_sunback_store.py < /path/to/input.json
-  # or via HA shell_command: ha_sunback_store '<json_string>'
+  python3 /config/packages/ha_solarpayback_store.py < /path/to/input.json
+  # or via HA shell_command: ha_solarpayback_store '<json_string>'
 """
 
 import json
@@ -18,14 +18,14 @@ import tempfile
 from pathlib import Path
 
 # Output file location (inside /config so it's backed up by HA)
-DATA_FILE = Path('/config/ha-sunback-data.json')
+DATA_FILE = Path('/config/ha-solarpayback-data.json')
 
 
 def main():
     # Read JSON from argv[1] (HA shell_command passes data as templated argument)
     # Usage in configuration.yaml:
     #   shell_command:
-    #     ha_sunback_store: 'python3 /config/packages/ha_sunback_store.py "{{ data | tojson }}"'
+    #     ha_solarpayback_store: 'python3 /config/packages/ha_solarpayback_store.py "{{ data | tojson }}"'
     if len(sys.argv) < 2:
         print('Error: no data argument provided', file=sys.stderr)
         sys.exit(1)
@@ -69,7 +69,7 @@ def main():
         mode='w',
         encoding='utf-8',
         dir=DATA_FILE.parent,
-        prefix='.ha-sunback-data.',
+        prefix='.ha-solarpayback-data.',
         suffix='.tmp',
         delete=False
     ) as tmp:

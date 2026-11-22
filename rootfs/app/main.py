@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HA SunBack — FastAPI Backend
+HA SolarPayBack — FastAPI Backend
 Serves the frontend static files and provides REST API for:
 - Settings, monthly data, tariffs, grid events (SQLite)
 - HA API proxy (entity states, history, statistics) using Supervisor token
@@ -28,7 +28,7 @@ import asyncio
 # Configuration
 # =============================================================================
 
-DB_PATH = os.environ.get("DB_PATH", "/data/ha-sunback.db")
+DB_PATH = os.environ.get("DB_PATH", "/data/ha-solarpayback.db")
 SUPERVISOR_TOKEN_PATH = os.environ.get("SUPERVISOR_TOKEN_PATH", "/var/run/secrets/hassio-token")
 SUPERVISOR_API = os.environ.get("SUPERVISOR_API", "http://supervisor")
 
@@ -252,7 +252,7 @@ async def lifespan(app: FastAPI):
     print("HA client closed")
 
 
-app = FastAPI(title="HA SunBack API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="HA SolarPayBack API", version="1.0.0", lifespan=lifespan)
 
 # CORS for ingress (browser calls same origin, but allow for dev)
 app.add_middleware(

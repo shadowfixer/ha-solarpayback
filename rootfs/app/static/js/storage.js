@@ -1,4 +1,4 @@
-// HA SunBack — Server-Backed Storage (replaces IndexedDB storage.js)
+// HA SolarPayBack — Server-Backed Storage (replaces IndexedDB storage.js)
 // All operations call the add-on's /api/* endpoints
 
 import { api } from './api.js';
@@ -176,4 +176,4 @@ export class Storage {
 }
 
 export const storage = new Storage();
-window.HASunBackStorage = Storage;
+window.HASolarPayBackStorage = Storage;

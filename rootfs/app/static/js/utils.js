@@ -1,4 +1,4 @@
-// HA SunBack — Utility functions
+// HA SolarPayBack — Utility functions
 
 export const Utils = {
   // Format number with commas, fixed decimals
@@ -139,4 +139,4 @@ export const Utils = {
 };
 
 // Global access for non-module scripts
-window.HASunBackUtils = Utils;
+window.HASolarPayBackUtils = Utils;

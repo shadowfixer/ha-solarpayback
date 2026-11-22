@@ -1,5 +1,5 @@
 #!/bin/sh
-# HA SunBack Add-on — Entrypoint
+# HA SolarPayBack Add-on — Entrypoint
 # Starts the FastAPI server on port 8099 (ingress_port)
 
 set -e
@@ -9,7 +9,7 @@ mkdir -p /data
 chown appuser:appuser /data 2>/dev/null || true
 
 # Database path (persistent)
-export DB_PATH="/data/ha-sunback.db"
+export DB_PATH="/data/ha-solarpayback.db"
 
 # Supervisor token path (injected by HA when homeassistant_api: true)
 export SUPERVISOR_TOKEN_PATH="/var/run/secrets/hassio-token"
@@ -18,7 +18,7 @@ export SUPERVISOR_TOKEN_PATH="/var/run/secrets/hassio-token"
 export SUPERVISOR_API="http://supervisor"
 
 # Log startup info
-echo "=== HA SunBack Add-on Starting ==="
+echo "=== HA SolarPayBack Add-on Starting ==="
 echo "Database: $DB_PATH"
 echo "Supervisor token: $SUPERVISOR_TOKEN_PATH"
 echo "Ingress port: 8099"

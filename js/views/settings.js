@@ -1,4 +1,4 @@
-// HA SunBack — Settings View
+// HA SolarPayBack — Settings View
 
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
@@ -283,7 +283,7 @@ export class SettingsView {
 
     let y = 20;
     doc.setFontSize(20);
-    doc.text('HA SunBack — Payback Report', 20, y);
+    doc.text('HA SolarPayBack — Payback Report', 20, y);
     y += 10;
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, y);
@@ -312,7 +312,7 @@ export class SettingsView {
       theme: 'striped'
     });
 
-    doc.save('ha-sunback-report.pdf');
+    doc.save('ha-solarpayback-report.pdf');
   }
 
   async exportExcel() {
@@ -329,7 +329,7 @@ export class SettingsView {
 
     // Summary sheet
     const summary = [
-      ['HA SunBack Payback Report'],
+      ['HA SolarPayBack Payback Report'],
       ['Generated', new Date().toLocaleDateString()],
       ['System Cost (£)', settings.systemCost],
       ['Install Date', settings.installDate],
@@ -389,7 +389,7 @@ export class SettingsView {
       utils.book_append_sheet(wb, ws4, 'Grid Events');
     }
 
-    write(wb, 'ha-sunback.xlsx', { bookType: 'xlsx' });
+    write(wb, 'ha-solarpayback.xlsx', { bookType: 'xlsx' });
   }
 
   async exportCSV() {
@@ -411,7 +411,7 @@ export class SettingsView {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ha-sunback-monthly.csv';
+    a.download = 'ha-solarpayback-monthly.csv';
     a.click();
     URL.revokeObjectURL(url);
   }

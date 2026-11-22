@@ -1,4 +1,4 @@
-// HA SunBack — Home Assistant API Client
+// HA SolarPayBack — Home Assistant API Client
 
 import { Utils } from './utils.js';
 
@@ -26,7 +26,7 @@ export class HAAPI {
 
   async getStoredConfig() {
     try {
-      const stored = localStorage.getItem('ha-sunback-config');
+      const stored = localStorage.getItem('ha-solarpayback-config');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -36,14 +36,14 @@ export class HAAPI {
   async saveConfig(url, token) {
     this.baseUrl = url.replace(/\/$/, '');
     this.token = token;
-    localStorage.setItem('ha-sunback-config', JSON.stringify({ url, token }));
+    localStorage.setItem('ha-solarpayback-config', JSON.stringify({ url, token }));
   }
 
   // Clear config
   clearConfig() {
     this.baseUrl = '';
     this.token = '';
-    localStorage.removeItem('ha-sunback-config');
+    localStorage.removeItem('ha-solarpayback-config');
     this.disconnectWS();
   }
 
@@ -77,13 +77,13 @@ export class HAAPI {
     return this.request('/');
   }
 
-  // Call shell_command/ha_sunback_store service to persist data in HA
+  // Call shell_command/ha_solarpayback_store service to persist data in HA
   // Payload: { gridEvents: [...], tariffHistory: [...] }
   // Fire-and-forget: never throws, logs errors only
   async persistToHA(gridEvents, tariffHistory) {
     if (!this.isConfigured()) return false;
     try {
-      await this.request('/services/shell_command/ha_sunback_store', {
+      await this.request('/services/shell_command/ha_solarpayback_store', {
         method: 'POST',
         body: JSON.stringify({ gridEvents, tariffHistory })
       });
@@ -94,12 +94,12 @@ export class HAAPI {
     }
   }
 
-  // Fetch persisted data from HA command_line sensor exposing /config/ha-sunback-data.json
+  // Fetch persisted data from HA command_line sensor exposing /config/ha-solarpayback-data.json
   // The sensor's json_attributes carry gridEvents + tariffHistory arrays
   async fetchPersistedData() {
     if (!this.isConfigured()) return null;
     try {
-      const state = await this.getState('sensor.ha_sunback_data');
+      const state = await this.getState('sensor.ha_solarpayback_data');
       if (!state) return null;
       const attrs = state.attributes || {};
       const gridEvents = attrs.gridEvents || [];
@@ -431,4 +431,4 @@ export class HAAPI {
 export const haApi = new HAAPI();
 
 // Global access
-window.HASunBackAPI = HAAPI;
+window.HASolarPayBackAPI = HAAPI;

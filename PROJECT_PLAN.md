@@ -1,6 +1,6 @@
-# HA SunBack — Local Solar Payback Dashboard
+# HA SolarPayBack — Local Solar Payback Dashboard
 
-**Goal**: A local, self-hosted dashboard (plain HTML/CSS/JS) that pulls solar/inverter data from Home Assistant (Fox ESS Cloud + Octopus Energy) and calculates payback — no cloud, no auth, no signup. Styled like SunBack.
+**Goal**: A local, self-hosted dashboard (plain HTML/CSS/JS) that pulls solar/inverter data from Home Assistant (Fox ESS Cloud + Octopus Energy) and calculates payback — no cloud, no auth, no signup. Styled like SolarPayBack.
 
 ---
 
@@ -74,7 +74,7 @@
 - **History** — monthly table + chart (generated, exported, used, saved, vs estimate)
 - **Settings** — system config, tariff history (rate changes), axle.energy grid events, export settings
 
-### 2. Payback Calculation (match SunBack logic)
+### 2. Payback Calculation (match SolarPayBack logic)
 - **Solar used** = Generated − Exported, valued at day rate
 - **Export income** = Exported × export rate (only for months SEG is active)
 - **Cheap-rate battery saving** = (Day rate × 90% − Night rate) × kWh charged on night rate
@@ -111,7 +111,7 @@ All calculations → Client-side JS → Dashboard render
 | Layer | Choice |
 |-------|--------|
 | **Frontend** | Plain HTML/CSS/JS (ES6 modules), no framework |
-| **Styling** | CSS custom properties (SunBack design tokens), Instrument Sans |
+| **Styling** | CSS custom properties (SolarPayBack design tokens), Instrument Sans |
 | **Charts** | Simple SVG/Canvas (no heavy library) or Chart.js via CDN if needed |
 | **Storage** | IndexedDB (idb wrapper) for monthly data, tariff history, grid events, settings |
 | **HA API** | REST for history, WebSocket for live updates |
@@ -123,9 +123,9 @@ All calculations → Client-side JS → Dashboard render
 ## Project Structure
 
 ```
-ha-sunback/
+ha-solarpayback/
 ├── index.html              # Main entry, hash routing
-├── styles.css              # SunBack design tokens + components
+├── styles.css              # SolarPayBack design tokens + components
 ├── theme.js                # Light/dark toggle (localStorage + prefers-color-scheme)
 ├── js/
 │   ├── app.js              # Main app init, routing, state

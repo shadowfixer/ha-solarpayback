@@ -1,4 +1,4 @@
-# HA SunBack Add-on — Dockerfile
+# HA SolarPayBack Add-on — Dockerfile
 # Alpine 3.20 + Python 3.11 + uvicorn + fastapi
 
 FROM alpine:3.20
