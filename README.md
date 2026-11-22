@@ -1,6 +1,6 @@
 # HA SolarPayBack — Local Solar Payback Dashboard
 
-A self-hosted, privacy-first solar payback dashboard for Home Assistant. Styled like [SolarPayBack.co.uk](https://sunback.co.uk) but runs entirely locally — no cloud, no accounts, no tracking.
+A self-hosted, privacy-first solar payback dashboard for Home Assistant. Runs entirely locally — no cloud, no accounts, no tracking.
 
 ## Features
 
@@ -119,7 +119,3 @@ npx serve .
 ## License
 
 MIT — Free for personal use.
-
----
-
-**Based on the design of [SolarPayBack.co.uk](https://sunback.co.uk) — rebuilt for Home Assistant integration.**
