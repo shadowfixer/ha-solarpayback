@@ -2,6 +2,12 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.8] - 2026-11-22
+
+### Changed
+- **Battery box text left-justified** on the Live Power Flow diagram (the SoC gauge
+  stays anchored on the right) — the numbers no longer look cramped.
+
 ## [1.0.7] - 2026-11-22
 
 ### Fixed
