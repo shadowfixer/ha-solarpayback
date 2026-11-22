@@ -244,8 +244,8 @@ export class LiveView {
             <g stroke="var(--panel-line)" stroke-width="3" fill="none" marker-end="url(#arrow)">
               <!-- PV -> Battery -->
               <path d="M200 100 Q220 100 240 100" opacity="${this.batCharge > 0 ? 1 : 0.3}"/>
-              <!-- PV -> Grid (export) — routed DOWN and ACROSS UNDER the battery, then UP to grid -->
-              <path d="M110 160 L110 205 L525 205 L525 120" opacity="${grid < 0 ? 1 : 0.3}"/>
+              <!-- PV -> Grid (export) — routed DOWN and ACROSS UNDER the battery, then UP to the Grid box bottom edge -->
+                            <path d="M110 160 L110 205 L560 205 L560 160" opacity="${grid < 0 ? 1 : 0.3}"/>
               <!-- Grid -> House (import) — routed under/round the battery -->
               <path d="M550 160 L550 215 L350 215 L350 260" opacity="${grid > 0 ? 1 : 0.3}"/>
               <!-- Battery -> House -->
