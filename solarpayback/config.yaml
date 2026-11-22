@@ -8,6 +8,8 @@ ingress: true
 ingress_port: 8099
 ingress_root: "/"
 panel_icon: mdi:solar-panel-large
+changelog: true
+documentation: true
 ports:
   8099/tcp: 8099
 arch:
