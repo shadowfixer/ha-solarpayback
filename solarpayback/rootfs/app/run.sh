@@ -39,8 +39,8 @@ if [ ! -f "$SUPERVISOR_TOKEN_PATH" ]; then
     echo "HA API calls will fail. Check homeassistant_api: true in config.yaml"
 fi
 
-# Start the FastAPI application with uvicorn
-exec python3 -m uvicorn main:app \
+# Start the FastAPI application with uvicorn (from the venv)
+exec /venv/bin/python -m uvicorn main:app \
     --host 0.0.0.0 \
     --port 8099 \
     --log-level info \
