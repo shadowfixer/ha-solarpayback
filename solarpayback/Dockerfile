@@ -1,12 +1,13 @@
-# HA SolarPayBack Add-on — Dockerfile (standard HA add-on pattern)
-# The Supervisor injects BUILD_FROM via --build-arg (a valid per-arch base image).
-# Do NOT put {arch} in a default here — {arch} is only substituted by HA into the build-arg.
-ARG BUILD_FROM
-FROM $BUILD_FROM
+# HA SolarPayBack Add-on — Dockerfile
+# No build.yaml (deprecated) and no published registry image, so we build directly
+# from a fixed base image here. HA does not inject BUILD_FROM in this mode.
+FROM alpine:3.20
 
-# Install Python packages on the HA base image (Alpine, has python3 + pip)
-RUN \
-    pip3 install --no-cache-dir \
+# Install Python + packages (Alpine)
+RUN apk add --no-cache \
+        python3 \
+        py3-pip \
+    && pip3 install --no-cache-dir \
         fastapi==0.112.0 \
         uvicorn==0.30.0 \
         aiohttp==3.10.0 \
