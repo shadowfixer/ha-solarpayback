@@ -4,9 +4,9 @@
 
 set -e
 
-# Ensure data directory exists and has correct permissions
+# Ensure data directory exists (owned by intended runtime user)
 mkdir -p /data
-chown appuser:appuser /data 2>/dev/null || true
+chmod 777 /data 2>/dev/null || true
 
 # Database path (persistent)
 export DB_PATH="/data/ha-solarpayback.db"

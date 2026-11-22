@@ -1,44 +1,30 @@
-# HA SolarPayBack Add-on — Dockerfile
-# Alpine 3.20 + Python 3.11 + uvicorn + fastapi
+# HA SolarPayBack Add-on — Dockerfile (standard HA add-on pattern)
+# The Supervisor injects BUILD_FROM (the HA base image for the target arch).
+ARG BUILD_FROM=ghcr.io/home-assistant/{arch}-base:latest
+FROM $BUILD_FROM
 
-FROM alpine:3.20
-
-# Install Python and dependencies
-RUN apk add --no-cache \
-    python3=~3.11 \
-    py3-pip \
-    && python3 -m ensurepip --upgrade \
-    && pip3 install --no-cache-dir --upgrade pip
-
-# Install Python packages
-RUN pip3 install --no-cache-dir \
-    fastapi==0.112.0 \
-    uvicorn[standard]==0.30.0 \
-    aiohttp==3.10.0 \
-    aiofiles==23.2.0
-
-# Create app directory
-WORKDIR /app
+# Install Python packages on the HA base image (Alpine, has python3 + pip)
+RUN \
+    pip3 install --no-cache-dir \
+        fastapi==0.112.0 \
+        uvicorn==0.30.0 \
+        aiohttp==3.10.0 \
+        aiofiles==23.2.0
 
 # Copy application code
+WORKDIR /app
 COPY rootfs/app/ /app/
 
-# Create non-root user (UID 1000 matches HA default)
-RUN adduser -D -u 1000 -h /app appuser \
-    && chown -R appuser:appuser /app
+# Make entrypoint executable
+RUN chmod a+x /app/run.sh
 
-# Data directory (mounted by HA at /data)
-RUN mkdir -p /data && chown appuser:appuser /data
+# Data directory (HA mounts /data)
+RUN mkdir -p /data && chown -R root:root /data
 
-# Switch to non-root
-USER appuser
-
-# Expose ingress port
+# Health check (server listens on 8099 for ingress)
 EXPOSE 8099
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8099/health')" || exit 1
 
 # Entrypoint
-ENTRYPOINT ["/app/run.sh"]
+CMD [ "/app/run.sh" ]
