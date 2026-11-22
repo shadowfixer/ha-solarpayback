@@ -2,6 +2,21 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.7] - 2026-11-22
+
+### Fixed
+- **Live power flow values**: entity mapping switched from fragile substring matches
+  to **exact entity IDs**, so the `unknown` `bat_soc1`/`bat_soc2` duplicates and the
+  feed-in/grid-consumption pair can no longer corrupt the displayed SoC or grid value.
+- **Grid box now shows net import/export** (import minus export) with a correct
+  Import/Export label, instead of two sensors fighting over the same value.
+
+### Changed
+- **Battery SoC is now a bottom-up, proportional gauge** — an 11% SoC shows an
+  almost-empty battery (previously it looked full regardless of the readout).
+- **Live flow lines re-routed** so the PV→Grid (export) line no longer crosses
+  through the battery box; import and PV→House flows route around the nodes too.
+
 ## [1.0.6] - 2026-11-22
 
 ### Fixed
