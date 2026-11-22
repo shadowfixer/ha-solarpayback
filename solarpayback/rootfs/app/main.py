@@ -123,16 +123,23 @@ class HAClient:
         self._load_token()
 
     def _load_token(self):
-        try:
-            with open(SUPERVISOR_TOKEN_PATH, "r") as f:
-                self.token = f.read().strip()
-            print(f"HA Client: Loaded supervisor token (length: {len(self.token)})")
-        except FileNotFoundError:
-            print(f"HA Client: WARNING - Supervisor token not found at {SUPERVISOR_TOKEN_PATH}")
-            self.token = None
-        except Exception as e:
-            print(f"HA Client: ERROR loading token: {e}")
-            self.token = None
+            # Modern Home Assistant injects the token as an environment variable
+            # SUPERVISOR_TOKEN (not a file). Read that first, then fall back to a file.
+            token = os.environ.get("SUPERVISOR_TOKEN")
+            if token:
+                self.token = token.strip()
+                print(f"HA Client: Loaded supervisor token from env (length: {len(self.token)})")
+                return
+            try:
+                with open(SUPERVISOR_TOKEN_PATH, "r") as f:
+                    self.token = f.read().strip()
+                print(f"HA Client: Loaded supervisor token from file (length: {len(self.token)})")
+            except FileNotFoundError:
+                print(f"HA Client: WARNING - Supervisor token not found at {SUPERVISOR_TOKEN_PATH}")
+                self.token = None
+            except Exception as e:
+                print(f"HA Client: ERROR loading token: {e}")
+                self.token = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session is None or self.session.closed:
@@ -601,22 +608,11 @@ async def ha_history_monthly(
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-@app.get("/")
-async def root():
-    return FileResponse(STATIC_DIR / "index.html")
-
-
-# Mount static files at /static (but also serve root from static)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-# Catch-all for SPA routing (hash-based, so index.html handles it)
-@app.get("/{path:path}")
-async def catch_all(path: str):
-    # If it's an API path, 404
-    if path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-    # Otherwise serve index.html (hash routing handles the rest)
-    return FileResponse(STATIC_DIR / "index.html")
+# Serve the frontend + all its referenced assets (index.html, /js/*, /styles.css,
+# /theme.js, ...) directly from the static dir at the root path. html=True serves
+# index.html for "/" and for SPA-friendly subpaths. This MUST be mounted AFTER all
+# the /api/* and /health routes above so they take precedence.
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static_root")
 
 
 if __name__ == "__main__":

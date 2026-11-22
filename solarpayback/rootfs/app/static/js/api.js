@@ -3,8 +3,21 @@
 // No HA token needed — backend uses Supervisor token server-side
 
 export const api = {
-  // Base is same origin (ingress handles auth via HA session cookie)
-  base: '/api',
+  // Base is derived from the current URL so it works behind HA ingress, where the
+  // add-on is reachable at /api/hassio_ingress/<token>/  (HA strips that prefix and
+  // forwards the remainder to this add-on on :8099). Using window.location.pathname
+  // keeps requests on the same origin/path instead of a hardcoded absolute /api.
+  base: (() => {
+      // The browser is served the add-on at /api/hassio_ingress/<token>/ by HA. HA
+      // strips that prefix and forwards the remainder to this add-on (:8099). So the
+      // API must be called relative to the CURRENT ingress path, not a fixed /api.
+      // pathname e.g. "/api/hassio_ingress/abc123/" -> base "/api/hassio_ingress/abc123/api"
+      // Direct (non-ingress) access "/" -> base "/api"
+      let p = window.location.pathname;
+      p = p.replace(/\/+$/, '');          // strip trailing slash(es)
+      if (p === '') return '/api';
+      return p + '/api';
+    })(),
 
   async request(path, options = {}) {
     const url = `${this.base}${path}`;
