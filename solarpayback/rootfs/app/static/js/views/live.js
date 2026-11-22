@@ -214,15 +214,15 @@ export class LiveView {
             </g>
 
             <!-- Battery -->
-            <g transform="translate(240, 40)">
-              <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="90" y="35" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="17">🔋 Battery</text>
-              <text x="90" y="70" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="22">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
-              <text x="90" y="98" text-anchor="middle" fill="var(--panel-line)" font-size="14">SoC: ${soc.toFixed(0)}%</text>
-              <!-- Battery gauge (bottom-up, proportional) -->
-              <rect x="${gaugeX}" y="${gaugeY}" width="${gaugeW}" height="${gaugeH}" rx="4" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
-              <rect x="${gaugeX + 2}" y="${fillY}" width="${gaugeW - 4}" height="${fillH}" rx="2" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
-            </g>
+                        <g transform="translate(240, 40)">
+                          <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+                          <text x="14" y="35" text-anchor="start" fill="var(--sun)" font-weight="700" font-size="17">🔋 Battery</text>
+                          <text x="14" y="70" text-anchor="start" fill="var(--on-panel)" font-weight="700" font-size="22">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
+                          <text x="14" y="98" text-anchor="start" fill="var(--panel-line)" font-size="14">SoC: ${soc.toFixed(0)}%</text>
+                          <!-- Battery gauge (bottom-up, proportional) -->
+                          <rect x="${gaugeX}" y="${gaugeY}" width="${gaugeW}" height="${gaugeH}" rx="4" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
+                          <rect x="${gaugeX + 2}" y="${fillY}" width="${gaugeW - 4}" height="${fillH}" rx="2" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
+                        </g>
 
             <!-- Grid -->
                         <g transform="translate(460, 40)">
