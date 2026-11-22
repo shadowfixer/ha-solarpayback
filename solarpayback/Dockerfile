@@ -1,6 +1,7 @@
 # HA SolarPayBack Add-on — Dockerfile (standard HA add-on pattern)
-# The Supervisor injects BUILD_FROM (the HA base image for the target arch).
-ARG BUILD_FROM=ghcr.io/home-assistant/{arch}-base:latest
+# The Supervisor injects BUILD_FROM via --build-arg (a valid per-arch base image).
+# Do NOT put {arch} in a default here — {arch} is only substituted by HA into the build-arg.
+ARG BUILD_FROM
 FROM $BUILD_FROM
 
 # Install Python packages on the HA base image (Alpine, has python3 + pip)
