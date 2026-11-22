@@ -19,6 +19,7 @@ ports:
   8099/tcp: 8099
 map:
   - "data:rw"
+# Local build from the repo Dockerfile (no registry image - omit `image:` so the
+# Supervisor builds the add-on from the Dockerfile for the target architecture).
 options: {}
 schema: {}
-image: "ghcr.io/springfall2008/ha-sunback/{arch}"
