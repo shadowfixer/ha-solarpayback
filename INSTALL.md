@@ -105,14 +105,16 @@ Once you're happy with the add-on, you can remove the old static-app deployment:
 
 ```
 ha-solarpayback/
-├── config.yaml          # Add-on manifest (slug ha_solarpayback, ingress 8099)
-├── Dockerfile           # Alpine 3.20 + Python 3.11 + FastAPI/uvicorn
-├── rootfs/
-│   └── app/
-│       ├── run.sh       # Entrypoint: waits for Supervisor token, starts uvicorn
-│       ├── main.py      # FastAPI backend: SQLite + HA REST proxy (Supervisor token)
-│       └── static/      # Frontend (index.html, css, js/views/*) - calls /api/*, no browser token
-└── DESIGN.md            # Architecture overview
+├── README.md
+├── INSTALL.md
+├── DESIGN.md            # Architecture overview
+└── solarpayback/        # The add-on directory (HA discovers add-ons in repo subdirs)
+    ├── config.yaml      # Add-on manifest (slug ha_solarpayback, ingress 8099)
+    ├── Dockerfile       # Alpine 3.20 + Python 3.11 + FastAPI/uvicorn
+    └── rootfs/app/
+        ├── run.sh       # Entrypoint: waits for Supervisor token, starts uvicorn
+        ├── main.py      # FastAPI backend: SQLite + HA REST proxy (Supervisor token)
+        └── static/      # Frontend (index.html, css, js/views/*) - calls /api/*, no browser token
 ```
 
 **Note:** the add-on is built locally from this Dockerfile on your HA OS — it does **not**

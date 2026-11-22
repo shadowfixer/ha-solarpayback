@@ -78,14 +78,16 @@ Data is stored in the add-on's SQLite database (persists across restarts, includ
 
 ```
 ha-solarpayback/
-├── config.yaml          # Add-on manifest (slug ha_solarpayback, ingress)
-├── Dockerfile           # Alpine + Python + FastAPI/uvicorn
+├── README.md            # This file
 ├── INSTALL.md           # Full install instructions
 ├── DESIGN.md            # Architecture overview
-└── rootfs/app/
-    ├── run.sh           # Entrypoint (starts uvicorn, waits for Supervisor token)
-    ├── main.py          # FastAPI backend: SQLite + HA REST proxy
-    └── static/          # Frontend (index.html, css, js/views/*) — calls /api/*
+└── solarpayback/        # The add-on directory (HA discovers add-ons in subdirs)
+    ├── config.yaml      # Add-on manifest (slug ha_solarpayback, ingress)
+    ├── Dockerfile       # Alpine + Python + FastAPI/uvicorn
+    └── rootfs/app/
+        ├── run.sh       # Entrypoint (starts uvicorn, waits for Supervisor token)
+        ├── main.py      # FastAPI backend: SQLite + HA REST proxy
+        └── static/      # Frontend (index.html, css, js/views/*) — calls /api/*
 ```
 
 ## Development
