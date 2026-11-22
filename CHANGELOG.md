@@ -2,6 +2,17 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.2] - 2026-11-22
+
+### Fixed
+- **First-sync bootstrap bug**: syncing a month that had never been saved returned an
+  HTTP 404 (`Month not found`), which aborted the whole sync — no months were stored,
+  so the dashboard stayed at £0 / no data. A missing month now returns an empty shell
+  so the sync saves all months correctly.
+- Changelog / Documentation tabs now actually appear in the add-on (manifest fields
+  enabled in 1.0.1's commit but the version wasn't re-bumped, so HA never re-fetched
+  the repo).
+
 ## [1.0.1] - 2026-11-22
 
 ### Added

@@ -324,7 +324,11 @@ async def get_monthly_data(month: Optional[str] = None):
                 "SELECT * FROM monthly_data WHERE month = ?", (month,)
             ).fetchone()
             if not row:
-                raise HTTPException(status_code=404, detail="Month not found")
+                # Return an empty shell for a month that isn't stored yet rather
+                # than 404 — the frontend uses this during sync to boot-strap a
+                # month that has never been saved.
+                return {"month": month, "year": int(month.split("-")[0]), "generated": 0, "exported": 0,
+                        "grid_import": 0, "bat_charge": 0, "bat_discharge": 0, "load": 0, "grid_events": 0}
             return dict(row)
         else:
             rows = conn.execute("SELECT * FROM monthly_data ORDER BY month").fetchall()
