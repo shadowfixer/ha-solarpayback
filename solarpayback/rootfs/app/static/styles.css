@@ -108,7 +108,7 @@ body {
   flex-direction: column;
 }
 main {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px 16px 130px;
   flex: 1;
@@ -390,10 +390,10 @@ button { cursor: pointer; }
 
 /* Monthly Table */
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: auto; }
+th, td { padding: 9px 8px; text-align: right; border-bottom: 1px solid var(--line); }
 th:first-child, td:first-child { text-align: left; }
-th { font-weight: 600; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+th { font-weight: 600; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2; white-space: nowrap; }
 tbody tr:hover { background: var(--paper); }
 .positive { color: var(--good); }
 .negative { color: var(--bad); }
@@ -411,11 +411,11 @@ tbody tr:hover { background: var(--paper); }
 .stat-value { font-size: 1.25rem; font-weight: 700; }
 
 /* Live View */
-.live-flow { gap: 16px; }
-#liveDiagram { width: 100%; height: auto; max-height: 280px; }
+.live-flow { gap: 20px; }
+#liveDiagram { width: 100%; height: auto; max-width: 640px; margin: 0 auto; display: block; }
 .live-values {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 .live-item { text-align: center; padding: 12px; background: var(--paper); border-radius: 10px; border: 1px solid var(--line); }
@@ -474,7 +474,7 @@ tbody tr:hover { background: var(--paper); }
   bottom: 0;
   left: 0;
   right: 0;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   background: var(--surface);

@@ -27,10 +27,11 @@ export class LiveView {
   }
 
   async render() {
-    await this.loadInitial();
-    this.startPolling();
-    this.diagramInterval = setInterval(() => this.renderDiagram(), 5000);
-  }
+      await this.loadInitial();
+      this.renderDiagram(); // render immediately (not just after the 5s interval)
+      this.startPolling();
+      this.diagramInterval = setInterval(() => this.renderDiagram(), 5000);
+    }
 
   async loadInitial() {
     try {
@@ -172,65 +173,65 @@ export class LiveView {
     const bat = this.getPowerValue('liveBat');
     const soc = parseFloat(document.getElementById('liveSoc')?.textContent) || 0;
 
-    // Simple flow diagram
-    const w = 600, h = 300;
-    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    svg.innerHTML = `
-      <defs>
-        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="var(--ink)"/>
-        </marker>
-      </defs>
+    // Simple flow diagram (boxes 50% larger: 180x120)
+        const w = 660, h = 460;
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.innerHTML = `
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="var(--ink)"/>
+            </marker>
+          </defs>
 
-      <!-- PV Panel -->
-            <g transform="translate(40, 40)">
-              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="60" y="35" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">☀ PV</text>
-              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
-              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">Generation</text>
-            </g>
+          <!-- PV Panel -->
+          <g transform="translate(20, 40)">
+            <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+            <text x="90" y="45" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="17">☀ PV</text>
+            <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
+            <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">Generation</text>
+          </g>
 
-            <!-- Battery -->
-            <g transform="translate(240, 40)">
-              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="60" y="25" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="14">🔋 Battery</text>
-              <text x="60" y="50" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="18">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
-              <text x="60" y="70" text-anchor="middle" fill="var(--panel-line)" font-size="12">SoC: ${soc.toFixed(0)}%</text>
-              <!-- Battery visual -->
-              <rect x="80" y="15" width="30" height="50" rx="2" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
-              <rect x="82" y="17" width="26" height="${Math.max(2, soc * 0.46)}" rx="1" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
-            </g>
+          <!-- Battery -->
+          <g transform="translate(240, 40)">
+            <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+            <text x="90" y="35" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="17">🔋 Battery</text>
+            <text x="90" y="70" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="22">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
+            <text x="90" y="98" text-anchor="middle" fill="var(--panel-line)" font-size="14">SoC: ${soc.toFixed(0)}%</text>
+            <!-- Battery visual -->
+            <rect x="132" y="20" width="38" height="80" rx="3" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
+            <rect x="134" y="22" width="34" height="${Math.max(2, soc * 0.72)}" rx="2" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
+          </g>
 
-            <!-- Grid -->
-            <g transform="translate(440, 40)">
-              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="60" y="35" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="14">⚡ Grid</text>
-              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${grid >= 0 ? '+' : ''}${Utils.fmtPower(grid * 1000)}</text>
-              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">${grid > 0 ? 'Import' : 'Export'}</text>
-            </g>
+          <!-- Grid -->
+          <g transform="translate(460, 40)">
+            <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+            <text x="90" y="45" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="17">⚡ Grid</text>
+            <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${grid >= 0 ? '+' : ''}${Utils.fmtPower(grid * 1000)}</text>
+            <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">${grid > 0 ? 'Import' : 'Export'}</text>
+          </g>
 
-            <!-- House Load -->
-            <g transform="translate(240, 160)">
-              <rect x="0" y="0" width="120" height="80" rx="8" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="60" y="35" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="14">🏠 House</text>
-              <text x="60" y="55" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="20">${Utils.fmtPower(load * 1000)}</text>
-              <text x="60" y="75" text-anchor="middle" fill="var(--panel-line)" font-size="12">Load</text>
-            </g>
+          <!-- House Load -->
+          <g transform="translate(240, 260)">
+            <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
+            <text x="90" y="45" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="17">🏠 House</text>
+            <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${Utils.fmtPower(load * 1000)}</text>
+            <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">Load</text>
+          </g>
 
-            <!-- Flow arrows -->
-            <g stroke="var(--panel-line)" stroke-width="3" fill="none" marker-end="url(#arrow)">
-        <!-- PV -> Battery -->
-        <path d="M160 80 Q200 80 240 80" opacity="${this.batCharge > 0 ? 1 : 0.3}"/>
-        <!-- PV -> Grid (export) -->
-        <path d="M160 80 Q300 80 440 80" opacity="${pv > load + (this.batCharge||0) ? 1 : 0.3}"/>
-        <!-- Grid -> House -->
-        <path d="M500 80 Q500 120 300 200" opacity="${grid > 0 ? 1 : 0.3}"/>
-        <!-- Battery -> House -->
-        <path d="M300 120 Q300 140 300 160" opacity="${this.batDischarge > 0 ? 1 : 0.3}"/>
-        <!-- PV -> House -->
-        <path d="M100 120 Q100 140 300 200" opacity="${pv > 0 ? 1 : 0.3}"/>
-      </g>
-    `;
+          <!-- Flow arrows -->
+          <g stroke="var(--panel-line)" stroke-width="3" fill="none" marker-end="url(#arrow)">
+            <!-- PV -> Battery -->
+            <path d="M200 100 Q220 100 240 100" opacity="${this.batCharge > 0 ? 1 : 0.3}"/>
+            <!-- PV -> Grid (export) -->
+            <path d="M200 100 Q330 100 460 100" opacity="${pv > load + (this.batCharge||0) ? 1 : 0.3}"/>
+            <!-- Grid -> House -->
+            <path d="M550 160 Q550 260 420 260" opacity="${grid > 0 ? 1 : 0.3}"/>
+            <!-- Battery -> House -->
+            <path d="M330 160 Q330 210 330 260" opacity="${this.batDischarge > 0 ? 1 : 0.3}"/>
+            <!-- PV -> House -->
+            <path d="M110 160 Q110 260 300 260" opacity="${pv > 0 ? 1 : 0.3}"/>
+          </g>
+        `;
   }
 
   getPowerValue(elementId) {

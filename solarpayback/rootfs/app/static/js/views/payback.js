@@ -218,22 +218,22 @@ export class PaybackView {
         ${yLabels}
 
         <!-- X axis -->
-        <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
-        ${xLabels}
+                <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
+                ${xLabels}
+              </svg>
 
-        <!-- Legend -->
-        <g font-size="0.75rem" font-weight="600">
-          <g transform="translate(${width - padding.right + 10}, ${padding.top})">
-            <line x1="0" y1="0" x2="20" y2="0" stroke="var(--sun)" stroke-width="3"/>
-            <text x="26" y="5" fill="var(--sun)">With Battery</text>
-          </g>
-          <g transform="translate(${width - padding.right + 10}, ${padding.top + 22})">
-            <line x1="0" y1="0" x2="20" y2="0" stroke="var(--export)" stroke-width="3"/>
-            <text x="26" y="5" fill="var(--export)">Without Battery</text>
-          </g>
-        </g>
-      </svg>
-    `;
+              <!-- Legend (below chart) -->
+              <div style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-top:10px; font-size:0.8rem; font-weight:600;">
+                <span style="display:inline-flex; align-items:center; gap:6px; color:var(--sun);">
+                  <span style="width:22px; height:3px; background:var(--sun); border-radius:2px; display:inline-block;"></span>
+                  With Battery
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:6px; color:var(--export);">
+                  <span style="width:22px; height:3px; background:var(--export); border-radius:2px; display:inline-block;"></span>
+                  Without Battery
+                </span>
+              </div>
+            `;
   }
 
   // Calculate projected payback date at each observation point (month)

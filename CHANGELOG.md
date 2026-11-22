@@ -2,6 +2,22 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.4] - 2026-11-22
+
+### Changed
+- **Removed the "Free" badge** from the header — this is a free, self-hosted app;
+  the placeholder badge is gone.
+- **Live Power Flow diagram 50% larger** — boxes enlarged (180×120) with a bigger
+  canvas; the whole Live page was re-spaced to fit them. Diagram now also renders
+  immediately on page load (previously blank for 5s while waiting on the refresh
+  interval).
+- **Wider page container** — the layout now uses up to 960px (was 720px) so tables
+  and cards have more room, instead of shrinking the type.
+- **History monthly table fits without a horizontal scrollbar** — concise column
+  headers combined with the wider container.
+- **Cumulative-savings chart legend moved to the bottom** of the chart (was
+  top-right where it clipped/overlapped).
+
 ## [1.0.3] - 2026-11-22
 
 ### Fixed
