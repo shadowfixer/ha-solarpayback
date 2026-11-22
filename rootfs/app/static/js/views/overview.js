@@ -137,8 +137,7 @@ export class OverviewView {
 
     try {
       // Call backend to compute monthly sums from HA history (daily-max method)
-      const entityIdsParam = energyEntityIds.join(',');
-      const monthlySums = await api.haGetHistory(entityIdsParam, install.toISOString(), now.toISOString(), 'day');
+      const monthlySums = await api.haGetMonthly(energyEntityIds, install.toISOString(), now.toISOString());
 
       // monthlySums is { entityId: { 'YYYY-MM': sum, ... }, ... }
       // Build month data objects by combining across entities
