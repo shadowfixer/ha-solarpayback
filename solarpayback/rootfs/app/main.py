@@ -613,6 +613,16 @@ async def ha_history_monthly(
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# Ensure the browser revalidates static assets on every load (so ES-module
+# sub-imports like ./views/*.js are never stuck on an old cached copy after an
+# update). Combined with the ?v= cache-busting query on the entry assets.
+@app.middleware("http")
+async def add_no_cache_header(request: Request, call_next):
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
 # Serve the frontend + all its referenced assets (index.html, /js/*, /styles.css,
 # /theme.js, ...) directly from the static dir at the root path. html=True serves
 # index.html for "/" and for SPA-friendly subpaths. This MUST be mounted AFTER all

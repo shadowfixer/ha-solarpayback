@@ -2,6 +2,15 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.5] - 2026-11-22
+
+### Changed
+- **Cache-busting asset URLs**: static assets now load with a version query
+  (`?v=1.0.5`) and the backend sends `no-cache` for all non-API assets, so after an
+  update the new UI appears immediately — no more hard-refresh / cache-clear needed.
+  (Your browser caches the frontend files otherwise and can keep showing the old
+  version until it re-validates.)
+
 ## [1.0.4] - 2026-11-22
 
 ### Changed
