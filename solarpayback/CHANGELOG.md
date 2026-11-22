@@ -2,6 +2,13 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.6] - 2026-11-22
+
+### Fixed
+- **Changelog tab now appears**: `CHANGELOG.md` moved inside the add-on directory
+  (`solarpayback/`) alongside `DOCS.md`. HA detects the changelog/documentation files
+  in the add-on folder, not the repo root. Version bumped so HA re-fetches the repo.
+
 ## [1.0.5] - 2026-11-22
 
 ### Changed
