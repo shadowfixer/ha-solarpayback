@@ -20,13 +20,14 @@ export class OverviewView {
   }
 
   async loadData() {
-    const settings = await storage.getAllSettings();
-    this.systemCost = parseFloat(settings.systemCost) || 0;
-    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
-    this.installDate = settings.installDate || '';
+      const settings = await storage.getAllSettings();
+      this.systemCost = parseFloat(settings.systemCost) || 0;
+      this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
+      this.installDate = settings.installDate || '';
+      this.exportStartDate = settings.exportStartDate || null;
 
-    this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate);
-  }
+      this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate, this.exportStartDate);
+    }
 
   renderPaybackSummary() {
     const last = this.monthlyData[this.monthlyData.length - 1];

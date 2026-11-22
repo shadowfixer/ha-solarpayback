@@ -237,10 +237,15 @@
             <input type="number" id="sysMcs" name="mcs" step="10" min="0" required>
           </div>
           <div class="form-field">
-            <label for="sysCapacity">System Capacity (kWp)</label>
-            <input type="number" id="sysCapacity" name="capacity" step="0.01" min="0">
-          </div>
-          <button type="submit" class="btn-primary">Save System Config</button>
+                      <label for="sysCapacity">System Capacity (kWp)</label>
+                      <input type="number" id="sysCapacity" name="capacity" step="0.01" min="0">
+                    </div>
+                    <div class="form-field">
+                      <label for="sysExportStart">Export Start Date</label>
+                      <input type="date" id="sysExportStart" name="exportStart">
+                      <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Only count export income from this date (when you start being paid for export). Leave blank if you're not paid for export yet.</p>
+                    </div>
+                    <button type="submit" class="btn-primary">Save System Config</button>
         </form>
       </section>
 

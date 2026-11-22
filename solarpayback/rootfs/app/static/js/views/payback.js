@@ -20,13 +20,14 @@ export class PaybackView {
   }
 
   async loadData() {
-    const settings = await storage.getAllSettings();
-    this.systemCost = parseFloat(settings.systemCost) || 0;
-    this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
-    this.installDate = settings.installDate || '';
+      const settings = await storage.getAllSettings();
+      this.systemCost = parseFloat(settings.systemCost) || 0;
+      this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
+      this.installDate = settings.installDate || '';
+      this.exportStartDate = settings.exportStartDate || null;
 
-    // Use Calc.recalculateAll which already includes grid events in monthly totals
-    this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate);
+      // Use Calc.recalculateAll which already includes grid events in monthly totals
+      this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate, this.exportStartDate);
 
     // Also get raw monthly data (with battery components) for without-battery calculation
     this.rawMonths = await storage.getAllMonths();

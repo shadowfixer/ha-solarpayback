@@ -24,11 +24,12 @@ export class SettingsView {
   }
 
   renderSystemForm() {
-    document.getElementById('sysCost').value = this.settings.systemCost || '0';
-    document.getElementById('sysInstall').value = this.settings.installDate || '';
-    document.getElementById('sysMcs').value = this.settings.mcsAnnual || '0';
-    document.getElementById('sysCapacity').value = this.settings.capacity || '7.35';
-  }
+      document.getElementById('sysCost').value = this.settings.systemCost || '0';
+      document.getElementById('sysInstall').value = this.settings.installDate || '';
+      document.getElementById('sysMcs').value = this.settings.mcsAnnual || '0';
+      document.getElementById('sysCapacity').value = this.settings.capacity || '7.35';
+      document.getElementById('sysExportStart').value = this.settings.exportStartDate || '';
+    }
 
   async renderTariffList() {
     const container = document.getElementById('tariffList');
@@ -103,10 +104,11 @@ export class SettingsView {
     document.getElementById('formSystem').addEventListener('submit', async (e) => {
       e.preventDefault();
       await storage.setSetting('systemCost', document.getElementById('sysCost').value);
-      await storage.setSetting('installDate', document.getElementById('sysInstall').value);
-      await storage.setSetting('mcsAnnual', document.getElementById('sysMcs').value);
-      await storage.setSetting('capacity', document.getElementById('sysCapacity').value);
-      this.app.showToast('System config saved');
+            await storage.setSetting('installDate', document.getElementById('sysInstall').value);
+            await storage.setSetting('mcsAnnual', document.getElementById('sysMcs').value);
+            await storage.setSetting('capacity', document.getElementById('sysCapacity').value);
+            await storage.setSetting('exportStartDate', document.getElementById('sysExportStart').value);
+            this.app.showToast('System config saved');
       this.app.refreshAllViews();
     });
 
@@ -227,9 +229,10 @@ export class SettingsView {
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
       parseFloat(settings.systemCost) || 0,
-      parseFloat(settings.mcsAnnual) || 0,
-      settings.installDate || ''
-    );
+            parseFloat(settings.mcsAnnual) || 0,
+            settings.installDate || '',
+            settings.exportStartDate || null
+          );
 
     let y = 20;
     doc.setFontSize(20);
@@ -271,9 +274,10 @@ export class SettingsView {
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
       parseFloat(settings.systemCost) || 0,
-      parseFloat(settings.mcsAnnual) || 0,
-      settings.installDate || ''
-    );
+            parseFloat(settings.mcsAnnual) || 0,
+            settings.installDate || '',
+            settings.exportStartDate || null
+          );
 
     const wb = utils.book_new();
 
@@ -346,9 +350,10 @@ export class SettingsView {
     const settings = await storage.getAllSettings();
     const monthlyData = await Calc.recalculateAll(
       parseFloat(settings.systemCost) || 0,
-      parseFloat(settings.mcsAnnual) || 0,
-      settings.installDate || ''
-    );
+            parseFloat(settings.mcsAnnual) || 0,
+            settings.installDate || '',
+            settings.exportStartDate || null
+          );
 
     const headers = ['Month', 'Generated', 'Exported', 'Self-Used', 'Grid Import', 'Bat Charge', 'Bat Discharge', 'Grid Events', 'Total Saved', 'vs Estimate'];
     const rows = monthlyData.map(m => [

@@ -34,30 +34,54 @@ class HASolarPayBackApp {
     this.updateConnectionBanner();
 
     // Initial view
-    this.showView('overview');
+        this.showView('overview');
 
-    this.initialized = true;
-    console.log('HA SolarPayBack (add-on) initialized');
+        this.initialized = true;
+        console.log('HA SolarPayBack (add-on) initialized');
 
-    // Auto-load data (settings, tariffs, grid events, monthly data from server)
-    this.refreshAllViews();
-  }
+        // Auto-load data (settings, tariffs, grid events, monthly data from server)
+        this.refreshAllViews();
 
-  setupRouting() {
-    // Handle hash changes
-    window.addEventListener('hashchange', () => this.handleRoute());
-    this.handleRoute();
+        // Auto-sync (A): if there is no monthly data yet, pull historical month
+        // data from HA automatically so the dashboard isn't blank. Keep the manual
+        // "Sync Monthly Data from HA" button in Settings for forced re-syncs (B).
+        this.autoSyncFromHA();
+      }
 
-    // Nav clicks
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        const view = item.dataset.view;
-        this.showView(view);
-        history.pushState(null, '', `#${view}`);
-      });
-    });
-  }
+      async autoSyncFromHA() {
+        try {
+          const months = await storage.getAllMonths();
+          if (months.length > 0) {
+            console.log('Auto-sync skipped: monthly data already present');
+            return;
+          }
+          const settings = await storage.getAllSettings();
+          if (!settings.installDate) {
+            console.log('Auto-sync deferred: no install date set yet');
+            return;
+          }
+          console.log('Auto-sync: pulling historical monthly data from HA...');
+          await this.views.overview.refreshFromHA();
+        } catch (e) {
+          console.error('Auto-sync failed:', e);
+        }
+      }
+
+      setupRouting() {
+        // Handle hash changes
+        window.addEventListener('hashchange', () => this.handleRoute());
+        this.handleRoute();
+
+        // Nav clicks
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const view = item.dataset.view;
+            this.showView(view);
+            history.pushState(null, '', `#${view}`);
+          });
+        });
+      }
 
   handleRoute() {
     const hash = window.location.hash.slice(1) || 'overview';

@@ -8,29 +8,38 @@ export const Calc = {
   BATTERY_EFFICIENCY: 0.9,
 
   // Calculate monthly savings breakdown
-  calculateMonthly(monthData, tariff, systemCost, mcsAnnual, installDate) {
-    const {
-      generated = 0,
-      exported = 0,
-      gridImport = 0,
-      batCharge = 0,
-      batDischarge = 0,
-      load = 0,
-      gridEvents = 0
-    } = monthData;
+    calculateMonthly(monthData, tariff, systemCost, mcsAnnual, installDate, exportStartDate = null) {
+      const {
+        generated = 0,
+        exported = 0,
+        gridImport = 0,
+        batCharge = 0,
+        batDischarge = 0,
+        load = 0,
+        gridEvents = 0
+      } = monthData;
 
-    const dayRate = tariff.day / 100;      // £/kWh
-    const nightRate = tariff.night / 100;  // £/kWh
-    const exportRate = tariff.export / 100; // £/kWh
+      const dayRate = tariff.day / 100;      // £/kWh
+      const nightRate = tariff.night / 100;  // £/kWh
+      const exportRate = tariff.export / 100; // £/kWh
 
-    // Solar used = Generated - Exported
-    const solarUsed = Math.max(0, generated - exported);
+      // Export income only counts once the user has an export contract.
+      // Until exportStartDate, any power generated-and-exported does NOT earn money,
+      // so we treat the export rate as 0 for those months. Grid events (e.g. axle)
+      // still count separately below — those are their own payments.
+      const exportStartMonth = exportStartDate ? exportStartDate.slice(0, 7) : null; // "YYYY-MM"
+      const monthKey = monthData.month; // "YYYY-MM"
+      const exporting = exportStartMonth ? monthKey >= exportStartMonth : false;
+      const effectiveExportRate = exporting ? exportRate : 0;
 
-    // 1. Solar used value (at day rate) - self-consumption avoids buying at day rate
-    const solarUsedValue = solarUsed * dayRate;
+      // Solar used = Generated - Exported
+      const solarUsed = Math.max(0, generated - exported);
 
-    // 2. Export income
-    const exportIncome = exported * exportRate;
+      // 1. Solar used value (at day rate) - self-consumption avoids buying at day rate
+      const solarUsedValue = solarUsed * dayRate;
+
+      // 2. Export income (0 until an export contract starts)
+      const exportIncome = exported * effectiveExportRate;
 
     // 3. Battery savings (conservative)
     // Only the portion of battery discharge that plausibly offsets peak (day) rate counts.
@@ -152,18 +161,18 @@ export const Calc = {
   },
 
   // Recalculate all months with current tariffs
-  async recalculateAll(systemCost, mcsAnnual, installDate) {
-    const months = await storage.getAllMonths();
-    const results = [];
+  async recalculateAll(systemCost, mcsAnnual, installDate, exportStartDate = null) {
+      const months = await storage.getAllMonths();
+      const results = [];
 
-    for (const month of months.sort((a, b) => a.month.localeCompare(b.month))) {
-      const tariff = await Calc.getTariffForMonth(month.month);
-      // Fetch grid events for this month and add to month data
-      const gridEventIncome = await Calc.getGridEventsForMonth(month.month);
-      const monthWithGridEvents = { ...month, gridEvents: gridEventIncome };
-      const calculated = Calc.calculateMonthly(monthWithGridEvents, tariff, systemCost, mcsAnnual, installDate);
-      results.push(calculated);
-    }
+      for (const month of months.sort((a, b) => a.month.localeCompare(b.month))) {
+        const tariff = await Calc.getTariffForMonth(month.month);
+        // Fetch grid events for this month and add to month data
+        const gridEventIncome = await Calc.getGridEventsForMonth(month.month);
+        const monthWithGridEvents = { ...month, gridEvents: gridEventIncome };
+        const calculated = Calc.calculateMonthly(monthWithGridEvents, tariff, systemCost, mcsAnnual, installDate, exportStartDate);
+        results.push(calculated);
+      }
 
     const withCumulative = Calc.calculatePayback(results, systemCost);
     return withCumulative;

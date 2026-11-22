@@ -213,6 +213,7 @@ class SettingsModel(BaseModel):
     installDate: Optional[str] = None
     mcsAnnual: Optional[str] = None
     capacity: Optional[str] = None
+    exportStartDate: Optional[str] = None
     haUrl: Optional[str] = None
     haToken: Optional[str] = None
     entityMap: Optional[Dict[str, str]] = None
