@@ -29,7 +29,9 @@ export class SettingsView {
       document.getElementById('sysMcs').value = this.settings.mcsAnnual || '0';
       document.getElementById('sysCapacity').value = this.settings.capacity || '7.35';
       document.getElementById('sysExportStart').value = this.settings.exportStartDate || '';
-    }
+            document.getElementById('sysPriceRise').value = this.settings.priceRise != null ? this.settings.priceRise : '';
+            document.getElementById('sysWear').value = this.settings.wear != null ? this.settings.wear : '';
+          }
 
   async renderTariffList() {
     const container = document.getElementById('tariffList');
@@ -108,7 +110,9 @@ export class SettingsView {
             await storage.setSetting('mcsAnnual', document.getElementById('sysMcs').value);
             await storage.setSetting('capacity', document.getElementById('sysCapacity').value);
             await storage.setSetting('exportStartDate', document.getElementById('sysExportStart').value);
-            this.app.showToast('System config saved');
+                        await storage.setSetting('priceRise', parseFloat(document.getElementById('sysPriceRise').value) || 0);
+                        await storage.setSetting('wear', parseFloat(document.getElementById('sysWear').value) || 0);
+                        this.app.showToast('System config saved');
       this.app.refreshAllViews();
     });
 

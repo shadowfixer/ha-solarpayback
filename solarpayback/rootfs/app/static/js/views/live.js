@@ -208,17 +208,17 @@ export class LiveView {
             <!-- PV Panel -->
             <g transform="translate(20, 40)">
               <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="90" y="45" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="17">☀ PV</text>
-              <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
-              <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">Generation</text>
+              <text x="90" y="40" text-anchor="middle" fill="var(--sun)" font-weight="700" font-size="17">☀ PV</text>
+                            <text x="90" y="72" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${pv >= 0 ? '+' : ''}${Utils.fmtPower(pv * 1000)}</text>
+                            <text x="90" y="100" text-anchor="middle" fill="var(--panel-line)" font-size="14">Generation</text>
             </g>
 
             <!-- Battery -->
                         <g transform="translate(240, 40)">
                           <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-                          <text x="14" y="35" text-anchor="start" fill="var(--sun)" font-weight="700" font-size="17">🔋 Battery</text>
-                          <text x="14" y="70" text-anchor="start" fill="var(--on-panel)" font-weight="700" font-size="22">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
-                          <text x="14" y="98" text-anchor="start" fill="var(--panel-line)" font-size="14">SoC: ${soc.toFixed(0)}%</text>
+                          <text x="14" y="40" text-anchor="start" fill="var(--sun)" font-weight="700" font-size="17">🔋 Battery</text>
+                                                    <text x="14" y="72" text-anchor="start" fill="var(--on-panel)" font-weight="700" font-size="22">${bat >= 0 ? '+' : ''}${Utils.fmtPower(bat * 1000)}</text>
+                                                    <text x="14" y="100" text-anchor="start" fill="var(--panel-line)" font-size="14">SoC: ${soc.toFixed(0)}%</text>
                           <!-- Battery gauge (bottom-up, proportional) -->
                           <rect x="${gaugeX}" y="${gaugeY}" width="${gaugeW}" height="${gaugeH}" rx="4" fill="none" stroke="var(--panel-line)" stroke-width="2"/>
                           <rect x="${gaugeX + 2}" y="${fillY}" width="${gaugeW - 4}" height="${fillH}" rx="2" fill="${soc > 50 ? 'var(--good)' : soc > 20 ? 'var(--sun)' : 'var(--bad)'}"/>
@@ -227,17 +227,17 @@ export class LiveView {
             <!-- Grid -->
                         <g transform="translate(460, 40)">
                           <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-                          <text x="90" y="45" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="17">⚡ Grid</text>
-                          <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${Utils.fmtPower(Math.abs(grid) * 1000)}</text>
-                          <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">${grid > 0 ? 'Import' : 'Export'}</text>
+                          <text x="90" y="40" text-anchor="middle" fill="var(--export)" font-weight="700" font-size="17">⚡ Grid</text>
+                                                    <text x="90" y="72" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${Utils.fmtPower(Math.abs(grid) * 1000)}</text>
+                                                    <text x="90" y="100" text-anchor="middle" fill="var(--panel-line)" font-size="14">${grid > 0 ? 'Import' : 'Export'}</text>
                         </g>
 
             <!-- House Load -->
             <g transform="translate(240, 260)">
               <rect x="0" y="0" width="180" height="120" rx="10" fill="var(--panel)" stroke="var(--panel-line)" stroke-width="2"/>
-              <text x="90" y="45" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="17">🏠 House</text>
-              <text x="90" y="80" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${Utils.fmtPower(load * 1000)}</text>
-              <text x="90" y="105" text-anchor="middle" fill="var(--panel-line)" font-size="14">Load</text>
+              <text x="90" y="40" text-anchor="middle" fill="var(--bad)" font-weight="700" font-size="17">🏠 House</text>
+                            <text x="90" y="72" text-anchor="middle" fill="var(--on-panel)" font-weight="700" font-size="26">${Utils.fmtPower(load * 1000)}</text>
+                            <text x="90" y="100" text-anchor="middle" fill="var(--panel-line)" font-size="14">Load</text>
             </g>
 
             <!-- Flow arrows (routed so the export line does NOT cross the battery box) -->

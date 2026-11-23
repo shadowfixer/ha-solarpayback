@@ -25,6 +25,8 @@ export class OverviewView {
       this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
       this.installDate = settings.installDate || '';
       this.exportStartDate = settings.exportStartDate || null;
+      this.priceRise = parseFloat(settings.priceRise) || 0;
+      this.wear = parseFloat(settings.wear) || 0;
 
       this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate, this.exportStartDate);
     }
@@ -35,7 +37,7 @@ export class OverviewView {
     const pct = this.systemCost > 0 ? (paidBack / this.systemCost) * 100 : 0;
 
     // Payback date
-    const paybackDate = Calc.estimatePaybackDate(this.monthlyData, this.systemCost, this.installDate);
+    const paybackDate = Calc.estimatePaybackDate(this.monthlyData, this.systemCost, this.installDate, this.priceRise, this.wear);
     const dateStr = paybackDate ? paybackDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—';
 
     document.getElementById('paidBackTotal').textContent = Utils.fmtCurrency(paidBack);

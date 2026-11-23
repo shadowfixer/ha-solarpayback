@@ -24,7 +24,9 @@ export class PaybackView {
       this.systemCost = parseFloat(settings.systemCost) || 0;
       this.mcsAnnual = parseFloat(settings.mcsAnnual) || 0;
       this.installDate = settings.installDate || '';
-      this.exportStartDate = settings.exportStartDate || null;
+            this.exportStartDate = settings.exportStartDate || null;
+            this.priceRise = parseFloat(settings.priceRise) || 0;
+            this.wear = parseFloat(settings.wear) || 0;
 
       // Use Calc.recalculateAll which already includes grid events in monthly totals
       this.monthlyData = await Calc.recalculateAll(this.systemCost, this.mcsAnnual, this.installDate, this.exportStartDate);
@@ -244,7 +246,7 @@ export class PaybackView {
     // For each month in the data, recalculate payback date using only data up to that month
     for (let i = 0; i < this.monthlyData.length; i++) {
       const dataUpToMonth = this.monthlyData.slice(0, i + 1);
-      const paybackDate = Calc.estimatePaybackDate(dataUpToMonth, this.systemCost, this.installDate);
+      const paybackDate = Calc.estimatePaybackDate(dataUpToMonth, this.systemCost, this.installDate, this.priceRise, this.wear);
 
       if (paybackDate) {
         movement.push({

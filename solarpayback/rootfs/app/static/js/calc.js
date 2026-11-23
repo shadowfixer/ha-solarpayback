@@ -109,33 +109,47 @@ export const Calc = {
     return results;
   },
 
-  // Estimate payback date using seasonal projection
-  estimatePaybackDate(months, systemCost, installDate) {
-    const paybackMonths = Calc.calculatePayback(months, systemCost);
-    const last = paybackMonths[paybackMonths.length - 1];
-    if (!last || last.cumulative >= systemCost) {
-      // Already paid back or will be this month
-      const paidBackMonth = paybackMonths.find(m => m.cumulative >= systemCost);
-      if (paidBackMonth) return Utils.parseMonthKey(paidBackMonth.month);
-      return new Date(); // already paid back
-    }
+  // Estimate payback date using seasonal projection.
+    // priceRisePct (%/yr) and wearPct (%/yr) compound annually from installDate,
+    // applied ONLY to the forward projection — historical savings stay as-is.
+    estimatePaybackDate(months, systemCost, installDate, priceRisePct = 0, wearPct = 0) {
+      const paybackMonths = Calc.calculatePayback(months, systemCost);
+      const last = paybackMonths[paybackMonths.length - 1];
+      if (!last || last.cumulative >= systemCost) {
+        // Already paid back or will be this month
+        const paidBackMonth = paybackMonths.find(m => m.cumulative >= systemCost);
+        if (paidBackMonth) return Utils.parseMonthKey(paidBackMonth.month);
+        return new Date(); // already paid back
+      }
 
-    // Project forward using seasonal-weighted average monthly saving
-    // Get monthly totalSaved values in chronological order
-    const monthlySaved = paybackMonths.map(m => m.totalSaved);
+      // Projected base monthly saving (seasonal-weighted) at current rates/output.
+      const monthlySaved = paybackMonths.map(m => m.totalSaved);
+      const projectedAnnualSaving = Utils.projectAnnual(monthlySaved, installDate);
+      if (projectedAnnualSaving <= 0) return null;
+      const baseMonthly = projectedAnnualSaving / 12;
 
-    // Project annual saving using seasonal weights
-    const projectedAnnualSaving = Utils.projectAnnual(monthlySaved, installDate);
+      const priceFactor = 1 + (parseFloat(priceRisePct) || 0) / 100;
+      const wearFactor = 1 - (parseFloat(wearPct) || 0) / 100;
 
-    if (projectedAnnualSaving <= 0) return null;
+      const start = Utils.parseMonthKey(last.month);
+      const install = new Date(installDate);
 
-    const remaining = systemCost - last.cumulative;
-    const monthsNeeded = remaining / (projectedAnnualSaving / 12);
-    const lastMonth = Utils.parseMonthKey(last.month);
-    const projected = new Date(lastMonth);
-    projected.setMonth(projected.getMonth() + Math.ceil(monthsNeeded));
-    return projected;
-  },
+      // Walk months forward from the last observed month until paid back.
+      let cum = last.cumulative;
+      const cursor = new Date(start.getFullYear(), start.getMonth() + 1, 1); // next month
+      let guard = 0;
+      while (cum < systemCost && guard < 1200) { // never project more than 100 years
+        // Years elapsed since install (can be fractional) -> compounding applied.
+        const years = (cursor.getFullYear() - install.getFullYear()) +
+                      (cursor.getMonth() - install.getMonth()) / 12;
+        const factor = Math.pow(priceFactor, years) * Math.pow(wearFactor, years);
+        cum += baseMonthly * factor;
+        cursor.setMonth(cursor.getMonth() + 1);
+        guard++;
+      }
+      if (cum < systemCost) return null; // wear may mean it never pays back
+      return new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
+    },
 
   // Get applicable tariff for a month
   async getTariffForMonth(monthKey) {

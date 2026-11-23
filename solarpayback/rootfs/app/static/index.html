@@ -13,10 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Theme script: runs in <head> before paint -->
-    <script src="theme.js?v=1.0.8"></script>
+    <script src="theme.js?v=1.0.9"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=1.0.8">
+    <link rel="stylesheet" href="styles.css?v=1.0.9">
 </head>
 <body>
   <!-- Header -->
@@ -71,10 +71,9 @@
         </div>
 
         <!-- Panels Grid -->
-        <div class="panel-grid-wrap">
-          <div class="cells" id="panelsGrid" role="img" aria-label="Payback progress panels, each cell is 1% of system cost"></div>
-          <p class="grid-caption muted">Each panel = 1% of the system cost you set in Settings</p>
-        </div>
+                <div class="panel-grid-wrap">
+                  <div class="cells" id="panelsGrid" role="img" aria-label="Payback progress panels"></div>
+                </div>
       </div>
 
       <!-- Monthly Breakdown -->
@@ -240,11 +239,21 @@
                       <input type="number" id="sysCapacity" name="capacity" step="0.01" min="0">
                     </div>
                     <div class="form-field">
-                      <label for="sysExportStart">Export Start Date</label>
-                      <input type="date" id="sysExportStart" name="exportStart">
-                      <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Only count export income from this date (when you start being paid for export). Leave blank if you're not paid for export yet.</p>
-                    </div>
-                    <button type="submit" class="btn-primary">Save System Config</button>
+                                        <label for="sysExportStart">Export Start Date</label>
+                                        <input type="date" id="sysExportStart" name="exportStart">
+                                        <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Only count export income from this date (when you start being paid for export). Leave blank if you're not paid for export yet.</p>
+                                      </div>
+                                      <div class="form-field">
+                                        <label for="sysPriceRise">Import Price Rise (% per year)</label>
+                                        <input type="number" id="sysPriceRise" name="priceRise" step="0.1" min="0" placeholder="0">
+                                        <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Yearly rise applied to all rates (day, night, export) for the payback projection only. Historical savings are unchanged.</p>
+                                      </div>
+                                      <div class="form-field">
+                                        <label for="sysWear">Panel Wear (% per year)</label>
+                                        <input type="number" id="sysWear" name="wear" step="0.1" min="0" placeholder="0">
+                                        <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Yearly generation degradation for the payback projection only. Historical savings are unchanged.</p>
+                                      </div>
+                                      <button type="submit" class="btn-primary">Save System Config</button>
         </form>
       </section>
 
@@ -389,6 +398,6 @@
   </div>
 
   <!-- Scripts -->
-    <script type="module" src="js/app.js?v=1.0.8"></script>
+    <script type="module" src="js/app.js?v=1.0.9"></script>
 </body>
 </html>

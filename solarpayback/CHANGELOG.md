@@ -2,6 +2,20 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.9] - 2026-11-22
+
+### Added
+- **Import Price Rise (% per year)** and **Panel Wear (% per year)** settings in System
+  Configuration. Both apply to the **payback-date projection only** (compounding annually
+  from the install date): price rise inflates the day/night/export rates (pulling payback
+  earlier), panel wear degrades generation output (pushing payback later). Historical
+  monthly savings are unchanged.
+
+### Changed
+- **Live Power Flow**: all four boxes (PV, Battery, Grid, House) now have vertically
+  centred text — PV/Grid/House centred, Battery left-justified with its gauge on the right.
+- **Dashboard**: removed the inaccurate "Each panel = 1% of the system cost" caption.
+
 ## [1.0.8] - 2026-11-22
 
 ### Changed
