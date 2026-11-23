@@ -453,7 +453,7 @@ button { cursor: pointer; }
   background: var(--runway-ghost);
   border-color: var(--sun);
 }
-.runway-range-legend { display: flex; gap: 8px; font-size: 0.7rem; }
+.runway-range-legend { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.7rem; }
 .runway-scen-label {
   appearance: none;
   cursor: pointer;
@@ -465,14 +465,6 @@ button { cursor: pointer; }
   font-size: 0.7rem;
   font-weight: 600;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
-  /* All pills stay equal width and grow to the widest label (which can change
-     as break-even figures change), so none ever truncates. */
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: nowrap;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .runway-scen-label:hover { border-color: var(--sun); color: var(--ink); }
 .runway-scen-label.active {

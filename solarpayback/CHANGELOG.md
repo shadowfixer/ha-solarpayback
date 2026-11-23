@@ -2,12 +2,13 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
-## [1.0.20] - 2026-11-22
+## [1.0.21] - 2026-11-22
 
-### Fixed
-- **Scenario legend pills**: the Cautious / Expected / Optimistic pills under the
-  25-year runway are now always equal width and grow to fit their (changing) label,
-  so the longest label — e.g. "Cautious 12.3y" — is no longer truncated at the edge.
+### Reverted
+- **Scenario legend pills**: rolled back the equal-width pill styling from 1.0.20 and
+  restored the original layout. The "Cautious —y" pill missing its year was not a
+  truncation bug — its break-even falls beyond the 25-year window, so it correctly
+  shows no date. (1.0.20's equal-width change is withdrawn.)
 
 ## [1.0.19] - 2026-11-22
 

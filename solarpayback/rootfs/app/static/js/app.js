@@ -4,14 +4,14 @@
 // Cache-busting: each sub-import carries ?v=<release> so a fresh app.js (loaded with a
 // new ?v= from index.html) always fetches the current module copies — never a stale
 // browser-cached ES module. Bump together with the version in config.yaml.
-import { storage } from './storage.js?v=1.0.20';
-import { Calc } from './calc.js?v=1.0.20';
-import { OverviewView } from './views/overview.js?v=1.0.20';
-import { LiveView } from './views/live.js?v=1.0.20';
-import { HistoryView } from './views/history.js?v=1.0.20';
-import { SettingsView } from './views/settings.js?v=1.0.20';
-import { PaybackView } from './views/payback.js?v=1.0.20';
-import { Utils } from './utils.js?v=1.0.20';
+import { storage } from './storage.js?v=1.0.21';
+import { Calc } from './calc.js?v=1.0.21';
+import { OverviewView } from './views/overview.js?v=1.0.21';
+import { LiveView } from './views/live.js?v=1.0.21';
+import { HistoryView } from './views/history.js?v=1.0.21';
+import { SettingsView } from './views/settings.js?v=1.0.21';
+import { PaybackView } from './views/payback.js?v=1.0.21';
+import { Utils } from './utils.js?v=1.0.21';
 
 class HASolarPayBackApp {
   constructor() {
