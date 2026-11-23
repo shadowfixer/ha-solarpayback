@@ -80,7 +80,7 @@ export class RunwayView {
     if (complete.length >= 12) {
       baselineAnnual = complete.slice(-12).reduce((s, m) => s + (m.totalSaved || 0), 0);
     } else {
-      baselineAnnual = Utils.projectAnnual(monthly.map(m => m.totalSaved || 0), installDate);
+      baselineAnnual = Utils.projectAnnual(monthly.map(m => m.totalSaved || 0), install);
     }
     if (!isFinite(baselineAnnual)) baselineAnnual = 0;
 

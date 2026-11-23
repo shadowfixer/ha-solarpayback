@@ -2,6 +2,14 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.15] - 2026-11-22
+
+### Fixed
+- **Runway didn't render with little or no historical data**: a variable name typo in the
+  low-data baseline path threw a `ReferenceError` and left the Runway box empty. The
+  seasonally-adjusted baseline now uses the correct date variable, so the Runway renders
+  even with a single month of data.
+
 ## [1.0.14] - 2026-11-22
 
 ### Added
