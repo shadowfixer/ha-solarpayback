@@ -341,25 +341,19 @@ button { cursor: pointer; }
 }
 
 /* Payback Summary */
-.payback-summary {
-  gap: 18px;
-  width: max-content;
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-}
+.payback-summary { gap: 10px; }
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: 32px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
   text-align: center;
 }
 .summary-item .label {
-  font-size: 0.85rem;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
 }
 .summary-item .value {
-  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-size: clamp(1.2rem, 4vw, 1.6rem);
   font-weight: 700;
   line-height: 1.1;
 }

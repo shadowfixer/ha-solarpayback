@@ -2,6 +2,12 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.11] - 2026-11-22
+
+### Changed
+- **Dashboard "Paid back so far" box restored to full width**, but made **shorter** (tighter
+  gap, smaller label + value font) so it sits compactly at its natural height.
+
 ## [1.0.10] - 2026-11-22
 
 ### Fixed
