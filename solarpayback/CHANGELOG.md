@@ -2,6 +2,18 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.10] - 2026-11-22
+
+### Fixed
+- **Settings now hold for Import Price Rise and Panel Wear**: the backend SettingsModel
+  didn't declare these two keys, so `put_settings` silently dropped them and the values
+  were never saved to SQLite. Both keys are now accepted and persisted — the values entered
+  survive clicking Save.
+
+### Changed
+- **Dashboard "Paid back so far" box no longer full-width** — it now sizes to its content
+  (max-width, centred, auto-width columns) so the three figures sit at a natural size.
+
 ## [1.0.9] - 2026-11-22
 
 ### Added

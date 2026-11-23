@@ -341,11 +341,17 @@ button { cursor: pointer; }
 }
 
 /* Payback Summary */
-.payback-summary { gap: 18px; }
+.payback-summary {
+  gap: 18px;
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, auto);
+  gap: 32px;
   text-align: center;
 }
 .summary-item .label {
