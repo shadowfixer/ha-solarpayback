@@ -2,6 +2,15 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.12] - 2026-11-22
+
+### Fixed
+- **Stale browser module cache**: ES-module sub-imports (`./views/*.js`, `calc.js`,
+  `storage.js`, `utils.js`) now carry a `?v=` release cache-buster in `app.js`, so a
+  freshly-loaded app always fetches the current copies instead of a browser-cached
+  older module. This is what made the Import Price Rise / Panel Wear fields appear to
+  not save after an update.
+
 ## [1.0.11] - 2026-11-22
 
 ### Changed

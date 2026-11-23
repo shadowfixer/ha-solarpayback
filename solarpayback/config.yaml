@@ -1,6 +1,6 @@
 ---
 name: HA SolarPayBack
-version: 1.0.11
+version: 1.0.12
 slug: ha_solarpayback
 description: Local solar payback dashboard for Home Assistant — SolarPayBack-style UI with ingress, SQLite backend, and server-side HA API proxy
 url: https://github.com/shadowfixer/ha-solarpayback
