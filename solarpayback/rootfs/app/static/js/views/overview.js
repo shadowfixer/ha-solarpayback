@@ -4,7 +4,7 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
-import { RunwayView } from './runway.js?v=1.0.19';
+import { RunwayView } from './runway.js?v=1.0.20';
 
 export class OverviewView {
   constructor(app) {
