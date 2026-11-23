@@ -123,6 +123,9 @@ export class RunwayView {
 
   // Break-even: first year cumulative >= cost, fractional within that year.
   analyze(years, systemCost) {
+    // Sum ALL 25 years for netAfter25; find break-even separately (do NOT break out
+    // of the loop, or the "after 25 years" figure would only cover savings up to the
+    // break-even year — making a faster break-even look like it ends up worse off).
     let cum = 0;
     let breakEven = null;
     for (let i = 0; i < 25; i++) {
@@ -132,7 +135,6 @@ export class RunwayView {
       if (!breakEven && systemCost > 0 && cum >= systemCost) {
         const denom = ysave > 0 ? ysave : 1;
         breakEven = { year: i + 1, years: i + Math.min(1, Math.max(0, (systemCost - before) / denom)) };
-        break;
       }
     }
     return { breakEven, netAfter25: cum - systemCost };

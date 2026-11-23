@@ -2,6 +2,16 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.18] - 2026-11-22
+
+### Fixed
+- **Runway "ahead after 25 years" was wrong**: the break-even loop stopped summing at the
+  break-even year, so the 25-year figure only covered savings up to break-even — making a
+  faster (optimistic) break-even appear to end up *worse off* than a slower one. The
+  analysis now sums all 25 years for the net figure while computing break-even separately,
+  so a quicker payback correctly shows a larger amount ahead (e.g. with current data:
+  Optimistic 15.8 yrs → £9,089 ahead vs Expected 18.7 yrs → £4,187 ahead).
+
 ## [1.0.17] - 2026-11-22
 
 ### Fixed
