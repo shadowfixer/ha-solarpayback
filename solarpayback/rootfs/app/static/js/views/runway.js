@@ -265,26 +265,28 @@ export class RunwayView {
     }).join('');
     const labels = Object.keys(SCENARIOS).map(k => {
       const v = positions[k];
-      return `<span class="runway-scen-label" data-scen="${k}">${SCENARIOS[k].label} ${v ? v.years.toFixed(1) : '—'}y</span>`;
+      const active = this.scenario === k;
+      return `<button type="button" class="runway-scen-label ${active ? 'active' : ''}" data-scen="${k}"
+        aria-pressed="${active}">${SCENARIOS[k].label} ${v ? v.years.toFixed(1) : '—'}y</button>`;
     }).join('');
     return `<div class="runway-range-track"><div class="runway-range-line"></div>${dots}</div>
             <div class="runway-range-legend">${labels}</div>`;
   }
 
   bind(host) {
+    // Single delegated listener catches clicks on the header buttons, the range-bar
+    // dots AND labels. Delegation survives innerHTML re-renders (direct per-element
+    // listeners on buttons would be dropped the first time the view re-renders).
     if (!this._bound) {
       this._bound = true;
-      host.querySelectorAll('.runway-scen-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          this.scenario = btn.dataset.scen;
+      host.addEventListener('click', (e) => {
+        const t = e.target.closest('.runway-scen-btn, .runway-dot, .runway-scen-label');
+        if (t && t.dataset && t.dataset.scen) {
+          this.scenario = t.dataset.scen;
           if (this.app) this.app.refreshAllViews();
-        });
+        }
       });
     }
-    host.addEventListener('click', (e) => {
-      const d = e.target.closest('.runway-dot, .runway-scen-label');
-      if (d && d.dataset.scen) { this.scenario = d.dataset.scen; if (this.app) this.app.refreshAllViews(); }
-    });
 
     host.addEventListener('mouseover', (e) => this.positionTip(e, host));
     host.addEventListener('focusin', (e) => this.positionTip(e, host));

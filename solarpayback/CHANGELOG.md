@@ -2,6 +2,20 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.17] - 2026-11-22
+
+### Fixed
+- **Runway scenario buttons were dead after the first re-render**: the header
+  Cautious/Expected/Optimistic buttons were bound with per-element listeners that were
+  dropped when the view re-rendered, so they stopped working. All scenario selection is
+  now handled by a single delegated listener on the container, so the header buttons work
+  consistently across re-renders.
+
+### Changed
+- **The range-bar legend words are now clickable** (Cautious / Expected / Optimistic pills
+  with the break-even year value), matching the header buttons and the dots — clicking
+  either a pill or a dot switches the whole Runway scenario.
+
 ## [1.0.16] - 2026-11-22
 
 ### Changed
