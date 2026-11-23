@@ -4,17 +4,19 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
+import { RunwayView } from './runway.js?v=1.0.14';
 
 export class OverviewView {
   constructor(app) {
     this.app = app;
     this.monthlyData = [];
+    this.runway = new RunwayView(app);
   }
 
   async render() {
     await this.loadData();
     this.renderPaybackSummary();
-    this.renderPanelsGrid();
+    this.renderRunway();
     this.renderMonthlyTable();
     this.renderQuickStats();
   }
@@ -49,42 +51,17 @@ export class OverviewView {
     pctEl.className = 'value num ' + (pct >= 100 ? 'positive' : '');
   }
 
-  renderPanelsGrid() {
-    const grid = document.getElementById('panelsGrid');
-    if (!grid) return;
-
-    const last = this.monthlyData[this.monthlyData.length - 1];
-    const pct = last ? Math.min(100, Math.max(0, last.pct)) : 0;
-    const filled = Math.round(pct);
-
-    grid.innerHTML = '';
-    for (let i = 0; i < 100; i++) {
-      const cell = document.createElement('i');
-      if (i < filled) cell.classList.add('filled');
-      grid.appendChild(cell);
-    }
-
-    // Animate on first load
-    if (!this.animated) {
-      this.animateGrid(filled);
-      this.animated = true;
-    }
-  }
-
-  animateGrid(target) {
-    const cells = document.querySelectorAll('#panelsGrid i');
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
-
-    let current = 0;
-    const timer = setInterval(() => {
-      current++;
-      cells.forEach((c, i) => {
-        if (i < current) c.classList.add('filled');
+  renderRunway() {
+      const date = Calc.estimatePaybackDate(this.monthlyData, this.systemCost, this.installDate, this.priceRise, this.wear);
+      this.runway.render('runway', {
+        monthlyData: this.monthlyData,
+        systemCost: this.systemCost,
+        installDate: this.installDate,
+        priceRise: this.priceRise,
+        wear: this.wear,
+        paybackDate: date
       });
-      if (current >= target) clearInterval(timer);
-    }, 45);
-  }
+    }
 
   renderMonthlyTable() {
     const tbody = document.getElementById('monthlyBody');

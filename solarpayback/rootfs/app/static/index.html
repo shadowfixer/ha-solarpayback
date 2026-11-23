@@ -13,10 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Theme script: runs in <head> before paint -->
-    <script src="theme.js?v=1.0.13"></script>
+    <script src="theme.js?v=1.0.14"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=1.0.13">
+    <link rel="stylesheet" href="styles.css?v=1.0.14">
 </head>
 <body>
   <!-- Header -->
@@ -70,11 +70,9 @@
           </div>
         </div>
 
-        <!-- Panels Grid -->
-                <div class="panel-grid-wrap">
-                  <div class="cells" id="panelsGrid" role="img" aria-label="Payback progress panels"></div>
-                </div>
-      </div>
+        <!-- Runway (replaces the old 100-cell panel grid) -->
+              <div id="runway" class="runway-host"></div>
+              </div>
 
       <!-- Monthly Breakdown -->
       <section class="card" aria-labelledby="monthly-title">
@@ -398,6 +396,6 @@
   </div>
 
   <!-- Scripts -->
-    <script type="module" src="js/app.js?v=1.0.13"></script>
+    <script type="module" src="js/app.js?v=1.0.14"></script>
 </body>
 </html>

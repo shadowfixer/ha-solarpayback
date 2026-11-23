@@ -2,6 +2,23 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.14] - 2026-11-22
+
+### Added
+- **Runway** on the Dashboard, replacing the old (invisible) 100-cell panel grid inside the
+  paid-back box. Two tile strips:
+  - **How close to payback** — 25 square tiles, each 4% of system cost (actuals): green when
+    recovered, a split tile while in progress, amber to recover.
+  - **25 years** — 25 numbered portrait tiles (year 1 from install date): amber before the
+    break-even year, split tile at break-even, green after; projected years are dashed.
+    A **Cautious / Expected / Optimistic** scenario toggle (projection only), a break-even
+    readout ("Break-even in X.X years (year N, month)"), a range bar with three scenario dots,
+    and hover/focus/tap tooltips. Edge cases handled (no install date / zero cost / no data).
+  All payback maths is re-used from Calc/Utils (totalSaved, cumulative, seasonal projection).
+
+### Changed
+- Removed the old dashboard panel grid (markup, renderer, and unused CSS/token).
+
 ## [1.0.13] - 2026-11-22
 
 ### Fixed
