@@ -2,6 +2,15 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.16] - 2026-11-22
+
+### Changed
+- **Runway range bar now uses the same 25-year scale as the year tiles** above it: a
+  scenario's dot is positioned at `× / 25` of the width, so each dot sits directly above
+  its corresponding Year tile (a 15.8-yr break-even shows over ~year 16, 18.7-yr over
+  ~year 19). Previously the bar zoomed to just the three dots, making break-even years
+  appear far away from where they actually fall.
+
 ## [1.0.15] - 2026-11-22
 
 ### Fixed

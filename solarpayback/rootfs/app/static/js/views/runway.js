@@ -255,9 +255,9 @@ export class RunwayView {
   range(positions) {
     const vals = Object.values(positions).filter(v => v && isFinite(v.years)).map(v => v.years);
     if (!vals.length) return '';
-    const min = Math.min(...vals), max = Math.max(...vals);
-    const lo = Math.max(0, min - 0.5), hi = Math.min(25, max + 0.5);
-    const pct = (y) => (y - lo) / (Math.max(0.0001, hi - lo)) * 100;
+    // Position dots on the SAME 0–25 year scale as the tiles above, so a dot at
+    // (years/25) sits exactly above its Year tile. E.g. 15.8 yrs -> 63%, 18.7 -> 75%.
+    const pct = (y) => Math.min(100, Math.max(0, (y / 25) * 100));
     const dots = Object.entries(positions).map(([k, v]) => {
       if (!v || !isFinite(v.years)) return '';
       return `<span class="runway-dot ${this.scenario === k ? 'active' : ''} runway-dot-${k}" data-scen="${k}"
