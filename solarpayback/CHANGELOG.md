@@ -2,6 +2,15 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.13] - 2026-11-22
+
+### Fixed
+- **Saving Settings threw a 422 and silently failed**: Import Price Rise and Panel Wear
+  were submitted as numbers, but the backend SettingsModel expects strings (as all other
+  settings are). The pydantic reject caused the Save to abort before writing and before
+  showing the "System config saved" toast. Both fields are now submitted as strings, so
+  the save completes, the values persist, and the confirmation shows.
+
 ## [1.0.12] - 2026-11-22
 
 ### Fixed

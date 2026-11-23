@@ -110,8 +110,8 @@ export class SettingsView {
             await storage.setSetting('mcsAnnual', document.getElementById('sysMcs').value);
             await storage.setSetting('capacity', document.getElementById('sysCapacity').value);
             await storage.setSetting('exportStartDate', document.getElementById('sysExportStart').value);
-                        await storage.setSetting('priceRise', parseFloat(document.getElementById('sysPriceRise').value) || 0);
-                        await storage.setSetting('wear', parseFloat(document.getElementById('sysWear').value) || 0);
+                        await storage.setSetting('priceRise', document.getElementById('sysPriceRise').value || '0');
+                                                await storage.setSetting('wear', document.getElementById('sysWear').value || '0');
                         this.app.showToast('System config saved');
       this.app.refreshAllViews();
     });
