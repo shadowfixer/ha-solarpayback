@@ -2,12 +2,24 @@
 
 A self-hosted, privacy-first solar payback dashboard for Home Assistant. Runs entirely locally — no cloud, no accounts, no tracking.
 
+## Screenshots
+
+> Screenshots show sample (non-identifiable) data.
+
+| Dashboard | Payback |
+|---|---|
+| ![Dashboard screenshot](docs/dashboard.png) | ![Payback screenshot](docs/payback.png) |
+
+| History | Settings |
+|---|---|
+| ![History screenshot](docs/history.png) | ![Settings screenshot](docs/settings.png) |
+
 ## Features
 
 - **Auto-pulls from Home Assistant** — Fox ESS Cloud (generation, export, battery, grid, load) + Octopus Energy (import/export rates)
 - **Payback calculation** — Solar used, export income, cheap-rate battery charging, axle.energy grid events
 - **Manual entries** — Tariff history (rate changes over time), grid event payments (date + £)
-- **Monthly history** — Auto-computed from HA history API, with MCS estimate comparison
+- **Monthly history** — Auto-synced from HA history (on first load, then **daily overnight**), with MCS estimate comparison
 - **Live view** — Real-time power flow via HA WebSocket (PV, battery, grid, house load)
 - **Export** — PDF report, Excel (.xlsx), CSV
 - **Light/dark theme** — Follows system preference, manual toggle, persists in localStorage
@@ -27,6 +39,10 @@ with a server-side SQLite store — no per-browser token required).
 3. **Open it** in any browser you're logged into HA with — no token to enter.
 4. In **Settings**, set your **system cost**, **install date** and **MCS estimate**, then
    add your **tariff history** and **grid events** (axle.energy payments) as they occur.
+
+> The add-on auto-syncs monthly history from Home Assistant on first load, then **every
+> night (~02:30 local)**. Use **Settings → Sync Monthly Data from HA** to force a resync
+> at any time.
 
 > No HA URL or long-lived token is needed in the app — the add-on backend authenticates to
 > Home Assistant server-side using the Supervisor token.
@@ -67,6 +83,7 @@ Matches SolarPayBack's methodology:
 Add-on backend → HA REST API (Supervisor token, server-side) → SQLite (/data/ha-solarpayback.db)
 Frontend → Add-on /api/* (ingress) → Dashboard
 Live view → polls add-on /api/ha/* every ~20s
+Monthly history → daily overnight sync task (add-on backend → HA history → SQLite)
 Manual entries (tariff, grid events) → SQLite (shared across all browsers/devices)
 All calculations → Client-side JS → Render
 ```

@@ -2,6 +2,20 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.0.19] - 2026-11-22
+
+### Added
+- **Daily overnight HA sync**: the add-on now automatically pulls historical monthly
+  energy data from Home Assistant **every night (~02:30 local)** via a server-side
+  background task, so the dashboard refreshes itself without needing a browser tab open.
+  The manual **Settings → Sync Monthly Data from HA** button is retained for on-demand
+  resyncs. (No more relying on the one-time first-load fill.)
+
+### Changed
+- **README + add-on docs**: added a **Screenshots** section (Dashboard, Payback, History,
+  Settings) showing sample data, and updated the sync wording across the docs to describe
+  the new daily overnight schedule.
+
 ## [1.0.18] - 2026-11-22
 
 ### Fixed

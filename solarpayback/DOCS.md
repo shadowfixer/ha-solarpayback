@@ -17,7 +17,8 @@ authenticates to Home Assistant using the Supervisor token.
 3. Add **Tariff History** entries (day/night/export rates and their start month).
 4. Add **Grid Events** (e.g. axle.energy payments: date + £ amount).
 5. On the Overview, the app auto-syncs historical monthly data from HA when the
-   database is empty. Use **Settings → Sync Monthly Data from HA** to resync.
+   database is empty, then **every night (~02:30 local)**. Use **Settings → Sync
+   Monthly Data from HA** to force a resync at any time.
 
 ## Updating & restarting
 

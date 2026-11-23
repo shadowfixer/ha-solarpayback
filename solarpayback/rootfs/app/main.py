@@ -10,7 +10,9 @@ import os
 import sqlite3
 import json
 import uuid
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -256,8 +258,19 @@ async def lifespan(app: FastAPI):
     # Startup
     init_db()
     print("Database initialized")
+
+    # Daily overnight HA sync (background task).
+    sync_task = asyncio.create_task(daily_sync_loop())
+    print("Daily HA sync task started")
+
     yield
+
     # Shutdown
+    sync_task.cancel()
+    try:
+        await sync_task
+    except asyncio.CancelledError:
+        pass
     await ha_client.close()
     print("HA client closed")
 
@@ -529,6 +542,152 @@ async def ha_foxess_entities():
 # HA Monthly Aggregation Endpoint (server-side daily-max)
 # =============================================================================
 
+# Fox ESS energy sensor IDs (lifetime cumulative / total_increasing).
+ENERGY_ENTITY_IDS = [
+    "sensor.garage_foxess_energy_generated",
+    "sensor.garage_foxess_feedin",
+    "sensor.garage_foxess_grid_consumption",
+    "sensor.garage_foxess_bat_charge",
+    "sensor.garage_foxess_bat_discharge",
+    "sensor.garage_foxess_load",
+]
+
+#: Month field names (DB) -> monthly-sums map keys produced by compute_monthly_sums.
+MONTH_FIELD_MAP = {
+    "generated": "sensor.garage_foxess_energy_generated",
+    "exported": "sensor.garage_foxess_feedin",
+    "grid_import": "sensor.garage_foxess_grid_consumption",
+    "bat_charge": "sensor.garage_foxess_bat_charge",
+    "bat_discharge": "sensor.garage_foxess_bat_discharge",
+    "load": "sensor.garage_foxess_load",
+}
+
+def _daily_max_to_monthly(values: list) -> dict:
+    """Compute daily-max -> monthly sums for one entity's history returns.
+
+    Fox ESS sensors are total_increasing (lifetime cumulative). The daily max of
+    the raw history per day gives that day's total; summing daily maxes per month
+    gives the monthly total.
+    """
+    daily_max = {}
+    for point in values:
+        state = point.get("state")
+        if state is None:
+            continue
+        try:
+            val = float(state)
+        except (ValueError, TypeError):
+            continue
+        last_changed = point.get("last_changed")
+        if not last_changed:
+            continue
+        dt = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
+        day_key = dt.strftime("%Y-%m-%d")
+        if day_key not in daily_max or val > daily_max[day_key]:
+            daily_max[day_key] = val
+    month_map = {}
+    for day_key, max_val in daily_max.items():
+        month_key = day_key[:7]
+        month_map[month_key] = month_map.get(month_key, 0) + max_val
+    return month_map
+
+
+async def compute_monthly_sums(entity_ids: list, start: str, end: str) -> dict:
+    """Return {entity_id: {'YYYY-MM': sum, ...}} using the daily-max method."""
+    history = await ha_client.get_history(entity_ids, start, end, None)
+    monthly = {}
+    for entity_history in history:
+        if not entity_history or not entity_history[0].get("entity_id"):
+            continue
+        entity_id = entity_history[0]["entity_id"]
+        monthly[entity_id] = _daily_max_to_monthly(entity_history)
+    return monthly
+
+
+async def run_daily_ha_sync():
+    """Pull historical monthly energy totals from HA and store them in SQLite.
+
+    Re-runs the same daily-max aggregation the manual Settings sync performs, so the
+    dashboard refreshes automatically once a day (overnight) without needing a browser
+    tab open. Installs date must be set; otherwise we skip (nothing to sync yet).
+    """
+    conn = get_db()
+    try:
+        settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings").fetchall()}
+    finally:
+        conn.close()
+
+    install_date = settings.get("installDate", "")
+    if not install_date:
+        print("Daily HA sync: skipped (no install date set)")
+        return
+
+    try:
+        install = datetime.fromisoformat(install_date)
+        end = datetime.now(timezone.utc).isoformat()
+        sums = await compute_monthly_sums(ENERGY_ENTITY_IDS, install.isoformat(), end)
+    except Exception as e:
+        print(f"Daily HA sync: ERROR fetching HA history: {e}")
+        return
+
+    # Build per-month records combining across entities, preserving any grid events.
+    all_month_keys = set()
+    for entity_map in sums.values():
+        all_month_keys.update(entity_map.keys())
+
+    conn = get_db()
+    try:
+        ts = now_ts()
+        for month_key in sorted(all_month_keys):
+            existing = conn.execute(
+                "SELECT grid_events FROM monthly_data WHERE month = ?", (month_key,)
+            ).fetchone()
+            grid_events = existing["grid_events"] if existing else 0
+
+            row = {
+                "month": month_key,
+                "year": int(month_key.split("-")[0]),
+                "grid_events": grid_events,
+            }
+            for db_field, entity in MONTH_FIELD_MAP.items():
+                row[db_field] = sums.get(entity, {}).get(month_key, 0)
+
+            conn.execute("""
+                INSERT OR REPLACE INTO monthly_data
+                (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                row["month"], row["year"], row["generated"], row["exported"],
+                row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
+                row["grid_events"], ts
+            ))
+        conn.commit()
+        print(f"Daily HA sync: stored/updated {len(all_month_keys)} month(s)")
+    finally:
+        conn.close()
+
+
+async def daily_sync_loop():
+    """Background task: run the HA sync once a day, overnight (~02:30 local).
+
+    Uses HA's configured timezone so the run time lands in the user's local night.
+    The first run is deferred to the next scheduled time (not immediately on start).
+    """
+    tz = ZoneInfo("Europe/London")
+    while True:
+        now_local = datetime.now(tz)
+        target = now_local.replace(hour=2, minute=30, second=0, microsecond=0)
+        if target <= now_local:
+            target += timedelta(days=1)
+        delay = (target - now_local).total_seconds()
+        print(f"Daily HA sync: next run in {delay/3600:.1f} h (at {target.isoformat()})")
+        await asyncio.sleep(delay)
+        try:
+            await run_daily_ha_sync()
+        except Exception as e:
+            print(f"Daily HA sync: ERROR: {e}")
+
+
 @app.get("/api/ha/monthly")
 async def ha_monthly(
     entity_ids: str,
@@ -548,49 +707,7 @@ async def ha_monthly(
     ids = [e.strip() for e in entity_ids.split(",")]
     end = end_time or datetime.now(timezone.utc).isoformat()
     start = start_time or (datetime.now(timezone.utc).replace(year=datetime.now().year - 1)).isoformat()
-    
-    # Fetch raw history from HA
-    history = await ha_client.get_history(ids, start, end, None)
-    
-    # Compute daily max per entity, then monthly sums
-    monthly = {}
-    
-    for entity_history in history:
-        if not entity_history or not entity_history[0].get("entity_id"):
-            continue
-           
-        entity_id = entity_history[0]["entity_id"]
-        daily_max = {}
-        
-        for point in entity_history:
-            state = point.get("state")
-            if state is None:
-                continue
-            try:
-                val = float(state)
-            except (ValueError, TypeError):
-                continue
-            
-            # Parse timestamp to local calendar day
-            last_changed = point.get("last_changed")
-            if not last_changed:
-                continue
-            dt = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
-            day_key = dt.strftime("%Y-%m-%d")
-            
-            # Track max state per day
-            if day_key not in daily_max or val > daily_max[day_key]:
-                daily_max[day_key] = val
-       
-        # Sum daily maxes by month
-        month_map = {}
-        for day_key, max_val in daily_max.items():
-            month_key = day_key[:7]  # "YYYY-MM"
-            month_map[month_key] = month_map.get(month_key, 0) + max_val
-       
-        monthly[entity_id] = month_map
-   
-    return monthly
+    return await compute_monthly_sums(ids, start, end)
 
 
 @app.get("/api/ha/history/monthly")
