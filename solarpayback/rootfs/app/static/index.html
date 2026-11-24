@@ -13,10 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Theme script: runs in <head> before paint -->
-    <script src="theme.js?v=1.0.21"></script>
+    <script src="theme.js?v=1.1.0"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=1.0.21">
+    <link rel="stylesheet" href="styles.css?v=1.1.0">
 </head>
 <body>
   <!-- Header -->
@@ -65,10 +65,14 @@
             <p class="value num" id="paidBackPct">0%</p>
           </div>
           <div class="summary-item">
-            <p class="label muted">Estimated payback</p>
-            <p class="value num" id="paybackDate">—</p>
-          </div>
-        </div>
+                      <p class="label muted">Estimated payback</p>
+                      <p class="value num" id="paybackDate">—</p>
+                    </div>
+                    <div class="summary-item">
+                      <p class="label muted">Export rate</p>
+                      <p class="value num" id="exportRateTag">—</p>
+                    </div>
+                  </div>
 
         <!-- Runway (replaces the old 100-cell panel grid) -->
               <div id="runway" class="runway-host"></div>
@@ -255,9 +259,37 @@
         </form>
       </section>
 
-      <!-- Tariff History -->
-      <section class="card" aria-labelledby="tariff-title">
-        <h2 id="tariff-title">Tariff History</h2>
+      <!-- Export Rate Source -->
+            <section class="card" aria-labelledby="exportrate-title">
+              <h2 id="exportrate-title">Export Rate Source</h2>
+              <p class="muted">Choose how export income is priced. Agile uses the live Octopus Agile export rate from Home Assistant (captured every 30 min); the manual per-month rate is used otherwise.</p>
+              <fieldset class="radar-toggle">
+                <legend class="sr-only">Export rate source</legend>
+                <label class="radar-pill">
+                  <input type="radio" name="exportRateSource" value="fixed" checked>
+                  <span>Fixed (manual)</span>
+                </label>
+                <label class="radar-pill">
+                  <input type="radio" name="exportRateSource" value="agile">
+                  <span>Agile (Octopus live)</span>
+                </label>
+              </fieldset>
+              <div id="exportRateAgileFields" style="margin-top:12px; display:none;">
+                <div class="form-field">
+                  <label for="exportRateEntity">Agile Export Rate Entity</label>
+                  <input type="text" id="exportRateEntity" name="exportRateEntity" placeholder="sensor.octopus_energy_..._export_current_rate">
+                  <p class="muted" style="margin:4px 0 0;font-size:0.8rem;">Entity (in £/kWh) that holds the current Agile export rate. Leave blank to use the detected default.</p>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center; margin-top:8px;">
+                  <span id="exportRateLive" class="muted" style="font-size:0.9rem;">Current Agile rate: —</span>
+                  <button id="btnCaptureRate" class="btn-secondary btn-sm" type="button">Capture Now</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Tariff History -->
+            <section class="card" aria-labelledby="tariff-title">
+              <h2 id="tariff-title">Tariff History</h2>
         <p class="muted">Add rate changes. Earlier months keep previous rates.</p>
         <form id="formTariff" class="form-grid" style="margin-bottom:16px;">
           <div class="form-field">
@@ -396,6 +428,6 @@
   </div>
 
   <!-- Scripts -->
-    <script type="module" src="js/app.js?v=1.0.21"></script>
+    <script type="module" src="js/app.js?v=1.1.0"></script>
 </body>
 </html>

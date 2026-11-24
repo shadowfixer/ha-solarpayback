@@ -37,6 +37,12 @@ SUPERVISOR_API = os.environ.get("SUPERVISOR_API", "http://supervisor")
 # HA REST API base (internal, via supervisor)
 HA_API_BASE = f"{SUPERVISOR_API}/core/api"
 
+# Default Agile export rate entity (Octopus Energy integration).
+DEFAULT_EXPORT_RATE_ENTITY = "sensor.octopus_energy_electricity_24l3504052_1170002575590_export_current_rate"
+# How often the export-rate logger captures the live Agile rate (seconds).
+# Agile reprices every half hour, so we log every 30 min as well.
+EXPORT_RATE_INTERVAL_SECS = 30 * 60
+
 
 # =============================================================================
 # Database Layer
@@ -90,6 +96,22 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tariff_month ON tariff_history(month)")
+
+        # Export rate log (raw captures; backup / future-proofing source of truth).
+        # Stores every rate read (Agile live, manual, or sync) with its timestamp so
+        # past export income can be reconstructed from real rates, not a monthly average.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS export_rate_log (
+                id TEXT PRIMARY KEY,
+                ts TEXT NOT NULL,
+                month TEXT NOT NULL,
+                rate_p REAL NOT NULL,
+                source TEXT NOT NULL DEFAULT 'agile',
+                notes TEXT DEFAULT ''
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_export_rate_month ON export_rate_log(month)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_export_rate_ts ON export_rate_log(ts)")
 
         # Grid events table
         conn.execute("""
@@ -221,6 +243,9 @@ class SettingsModel(BaseModel):
     haUrl: Optional[str] = None
     haToken: Optional[str] = None
     entityMap: Optional[Dict[str, str]] = None
+    exportRateSource: Optional[str] = None      # 'agile' | 'fixed'
+    exportRateEntity: Optional[str] = None      # live export rate entity id (Agile)
+    exportRateP: Optional[str] = None           # latest captured rate in p/kWh
 
 
 class MonthlyDataModel(BaseModel):
@@ -263,12 +288,24 @@ async def lifespan(app: FastAPI):
     sync_task = asyncio.create_task(daily_sync_loop())
     print("Daily HA sync task started")
 
+    # Export-rate logger (captures Agile rate every 30 min when Agile is selected).
+    rate_task = asyncio.create_task(export_rate_log_loop())
+    print("Export rate logger task started")
+
+    # Current-month refresher (updates today's figures every 30 min).
+    month_task = asyncio.create_task(monthly_refresh_loop())
+    print("Current-month refresh task started")
+
     yield
 
     # Shutdown
     sync_task.cancel()
+    rate_task.cancel()
+    month_task.cancel()
     try:
         await sync_task
+        await rate_task
+        await month_task
     except asyncio.CancelledError:
         pass
     await ha_client.close()
@@ -478,6 +515,135 @@ async def delete_grid_event(eid: str):
 
 
 # =============================================================================
+# Export Rate (Agile) — live capture, log, and source selection
+# =============================================================================
+
+def _get_settings_map() -> dict:
+    conn = get_db()
+    try:
+        return {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings").fetchall()}
+    finally:
+        conn.close()
+
+
+def _active_export_rate_entity(settings: dict) -> str:
+    return (settings.get("exportRateEntity") or "").strip() or DEFAULT_EXPORT_RATE_ENTITY
+
+
+def _capture_export_rate_now(source: str = "agile") -> dict:
+    """Read the live export rate from HA, log it, and persist the latest p value.
+
+    Returns the captured rate in p/kWh (or None if the entity is unavailable).
+    The rate entity states a £/kWh value (e.g. 0.1853); the app works in p/kWh
+    (18.53), so we multiply by 100.
+    """
+    settings = _get_settings_map()
+    # Only attempt a live read when Agile is the selected source (or when forced).
+    if settings.get("exportRateSource", "fixed") != "agile" and source.startswith("agile"):
+        return {"ok": False, "source": settings.get("exportRateSource", "fixed"), "rateP": None, "note": "Agile not selected"}
+
+    entity = _active_export_rate_entity(settings)
+    try:
+        state = ha_client.request("GET", f"/states/{entity}")
+    except HTTPException as e:
+        return {"ok": False, "rateP": None, "error": f"HA unavailable: {e.detail}"}
+    except Exception as e:
+        return {"ok": False, "rateP": None, "error": str(e)}
+
+    raw = state.get("state")
+    try:
+        rate_gbp = float(raw)
+    except (TypeError, ValueError):
+        return {"ok": False, "rateP": None, "error": f"Entity {entity} not a number: {raw!r}"}
+
+    rate_p = round(rate_gbp * 100.0, 4)
+    log_id = str(uuid.uuid4())
+    ts = datetime.now(timezone.utc).isoformat()
+    month = ts[:7]
+
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO export_rate_log (id, ts, month, rate_p, source, notes) VALUES (?, ?, ?, ?, ?, ?)",
+            (log_id, ts, month, rate_p, source, entity),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('exportRateP', ?, ?)",
+            (str(rate_p), now_ts()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    print(f"Export rate: captured {rate_p}p/kWh ({source}) from {entity}")
+    return {"ok": True, "rateP": rate_p, "ts": ts, "month": month, "entity": entity}
+
+
+@app.get("/api/export-rates")
+async def get_export_rates(month: Optional[str] = None, latest_only: bool = False):
+    """Return the raw export-rate log (backup / reconstruction source of truth)."""
+    conn = get_db()
+    try:
+        if latest_only:
+            row = conn.execute(
+                "SELECT * FROM export_rate_log ORDER BY ts DESC LIMIT 1"
+            ).fetchone()
+            return dict(row) if row else None
+        if month:
+            rows = conn.execute(
+                "SELECT * FROM export_rate_log WHERE month = ? ORDER BY ts", (month,)
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM export_rate_log ORDER BY ts").fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+@app.get("/api/export-rates/current")
+async def get_export_rate_current():
+    """Return the live rate for the selected source (Agile: from HA; Fixed: manual tariff)."""
+    settings = _get_settings_map()
+    source = settings.get("exportRateSource", "fixed")
+    if source == "agile":
+        captured = await asyncio.to_thread(_capture_export_rate_now, "agile")
+        return captured
+    # Fixed: return the latest manual export tariff value (p/kWh).
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT export FROM tariff_history ORDER BY month DESC LIMIT 1"
+        ).fetchone()
+        manual_p = row["export"] if row else 0
+    finally:
+        conn.close()
+    return {"ok": True, "source": "fixed", "rateP": manual_p}
+
+
+@app.post("/api/export-rates/capture")
+async def capture_export_rate(source: str = "agile"):
+    """Force a manual capture/log of the current Agile rate."""
+    captured = await asyncio.to_thread(_capture_export_rate_now, source)
+    return captured
+
+
+async def export_rate_log_loop():
+    """Background task: capture+log the live Agile export rate every 30 minutes.
+
+    Agile reprices half-hourly, so we log at the same cadence. Only runs when
+    the export rate source is 'agile'. Logging is cheap (one row every 30 min).
+    """
+    while True:
+        await asyncio.sleep(EXPORT_RATE_INTERVAL_SECS)
+        settings = _get_settings_map()
+        if settings.get("exportRateSource", "fixed") == "agile":
+            try:
+                _capture_export_rate_now("agile")
+            except Exception as e:
+                print(f"Export rate logger: ERROR {e}")
+
+
+# =============================================================================
 # HA Proxy API
 # =============================================================================
 
@@ -665,6 +831,76 @@ async def run_daily_ha_sync():
         print(f"Daily HA sync: stored/updated {len(all_month_keys)} month(s)")
     finally:
         conn.close()
+
+
+CURRENT_MONTH_REFRESH_INTERVAL_SECS = 30 * 60
+
+
+async def run_current_month_refresh():
+    """Refresh only the in-flight (current) month from live HA energy sensors.
+
+    Unlike the overnight daily sync (which rebuilds all months), this runs every
+    30 minutes and updates just the current month's generated/exported/grid/battery/
+    load so the dashboard reflects "today so far" without churning historical months.
+    Uses the same daily-max aggregation; preserves any grid events already recorded.
+    """
+    conn = get_db()
+    try:
+        settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings").fetchall()}
+    finally:
+        conn.close()
+
+    install_date = settings.get("installDate", "")
+    if not install_date:
+        return  # Nothing to anchor to yet.
+
+    now_local = datetime.now(ZoneInfo("Europe/London"))
+    month_key = now_local.strftime("%Y-%m")
+    month_start = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end = now_local.astimezone(timezone.utc).isoformat()
+
+    try:
+        sums = await compute_monthly_sums(ENERGY_ENTITY_IDS, month_start.astimezone(timezone.utc).isoformat(), end)
+    except Exception as e:
+        print(f"Current-month refresh: ERROR fetching HA history: {e}")
+        return
+
+    # Build the row for the current month, preserving grid events.
+    conn = get_db()
+    try:
+        ts = now_ts()
+        existing = conn.execute(
+            "SELECT grid_events FROM monthly_data WHERE month = ?", (month_key,)
+        ).fetchone()
+        grid_events = existing["grid_events"] if existing else 0
+
+        row = {"month": month_key, "year": int(month_key.split("-")[0]), "grid_events": grid_events}
+        for db_field, entity in MONTH_FIELD_MAP.items():
+            row[db_field] = sums.get(entity, {}).get(month_key, 0)
+
+        conn.execute("""
+            INSERT OR REPLACE INTO monthly_data
+            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            row["month"], row["year"], row["generated"], row["exported"],
+            row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
+            row["grid_events"], ts
+        ))
+        conn.commit()
+        print(f"Current-month refresh: updated {month_key}")
+    finally:
+        conn.close()
+
+
+async def monthly_refresh_loop():
+    """Background task: refresh the in-flight month every 30 minutes."""
+    while True:
+        await asyncio.sleep(CURRENT_MONTH_REFRESH_INTERVAL_SECS)
+        try:
+            await run_current_month_refresh()
+        except Exception as e:
+            print(f"Current-month refresh: ERROR {e}")
 
 
 async def daily_sync_loop():

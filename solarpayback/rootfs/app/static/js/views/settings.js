@@ -3,6 +3,7 @@
 import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
+import { api } from '../api.js';
 
 export class SettingsView {
   constructor(app) {
@@ -13,9 +14,28 @@ export class SettingsView {
   async render() {
     await this.loadSettings();
     this.renderSystemForm();
+    this.renderExportRate();
     this.renderTariffList();
     this.renderGridEvents();
     this.bindEvents();
+  }
+
+  async renderExportRate() {
+    const source = this.settings.exportRateSource || 'fixed';
+    const radios = document.querySelectorAll('input[name="exportRateSource"]');
+    radios.forEach(r => { r.checked = (r.value === source); });
+
+    const agileFields = document.getElementById('exportRateAgileFields');
+    if (agileFields) agileFields.style.display = (source === 'agile') ? 'block' : 'none';
+
+    const entityEl = document.getElementById('exportRateEntity');
+    if (entityEl) entityEl.value = this.settings.exportRateEntity || '';
+
+    // Show latest live rate (from settings exportRateP).
+    const liveEl = document.getElementById('exportRateLive');
+    if (liveEl && this.settings.exportRateP) {
+      liveEl.textContent = `Latest captured Agile rate: ${parseFloat(this.settings.exportRateP).toFixed(2)}p/kWh`;
+    }
   }
 
   async loadSettings() {
@@ -101,6 +121,71 @@ export class SettingsView {
   bindEvents() {
     if (this._bound) return; // Bind once per view instance — re-rendering re-calls this and would stack duplicate listeners (each click then fires the submit handler N times, saving N duplicate grid events)
     this._bound = true;
+
+    // Export rate source (radar toggle)
+    document.querySelectorAll('input[name="exportRateSource"]').forEach(radio => {
+      radio.addEventListener('change', async (e) => {
+        const source = e.target.value;
+        await storage.setSetting('exportRateSource', source);
+        const agileFields = document.getElementById('exportRateAgileFields');
+        if (agileFields) agileFields.style.display = (source === 'agile') ? 'block' : 'none';
+        // When switching to Agile, capture the live rate immediately so the
+        // dashboard has a current value (rather than waiting for the 30-min loop).
+        if (source === 'agile') {
+          try {
+            const res = await api.captureExportRate('agile');
+            const liveEl = document.getElementById('exportRateLive');
+            if (res.ok && res.rateP != null) {
+              await storage.setSetting('exportRateP', String(res.rateP));
+              if (liveEl) liveEl.textContent = `Latest captured Agile rate: ${parseFloat(res.rateP).toFixed(2)}p/kWh`;
+              this.app.showToast(`Agile export rate: ${parseFloat(res.rateP).toFixed(2)}p/kWh`);
+            } else {
+              this.app.showToast(`Agile active — live rate pending: ${res.error || res.note || ''}`, true);
+            }
+          } catch (err) {
+            this.app.showToast('Live rate capture failed: ' + err.message, true);
+          }
+        } else {
+          this.app.showToast('Export rate: Fixed (manual)');
+        }
+        this.app.refreshAllViews();
+      });
+    });
+
+    // Agile entity input (saved on blur)
+    const entityEl = document.getElementById('exportRateEntity');
+    if (entityEl) {
+      entityEl.addEventListener('change', async () => {
+        await storage.setSetting('exportRateEntity', entityEl.value.trim());
+        this.app.showToast('Agile export entity saved');
+      });
+    }
+
+    // Capture now
+    const captureBtn = document.getElementById('btnCaptureRate');
+    if (captureBtn) {
+      captureBtn.addEventListener('click', async () => {
+        captureBtn.disabled = true;
+        captureBtn.textContent = 'Capturing…';
+        try {
+          const res = await api.captureExportRate('agile');
+          const liveEl = document.getElementById('exportRateLive');
+          if (res.ok && res.rateP != null) {
+            if (liveEl) liveEl.textContent = `Latest captured Agile rate: ${parseFloat(res.rateP).toFixed(2)}p/kWh`;
+            await storage.setSetting('exportRateP', String(res.rateP));
+            this.app.refreshAllViews();
+            this.app.showToast(`Captured ${parseFloat(res.rateP).toFixed(2)}p/kWh`);
+          } else {
+            this.app.showToast(`Capture failed: ${res.error || res.note || 'unknown'}`, true);
+          }
+        } catch (err) {
+          this.app.showToast('Capture error: ' + err.message, true);
+        } finally {
+          captureBtn.disabled = false;
+          captureBtn.textContent = 'Capture Now';
+        }
+      });
+    }
 
     // System form
     document.getElementById('formSystem').addEventListener('submit', async (e) => {

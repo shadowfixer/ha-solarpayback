@@ -346,6 +346,31 @@ button { cursor: pointer; }
   grid-column: 1 / -1;
 }
 
+/* Export rate source (radar toggle) */
+.radar-toggle { display: flex; gap: 8px; flex-wrap: wrap; padding: 0; margin: 0; border: none; }
+.radar-pill { position: relative; }
+.radar-pill input {
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.radar-pill span {
+  display: inline-block;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.radar-pill input:checked + span {
+  border-color: var(--sun);
+  background: var(--sun-soft);
+  color: var(--sun-ink);
+}
+.radar-pill input:focus-visible + span { outline: 3px solid var(--sun); outline-offset: 2px; }
+
 /* Payback Summary */
 .payback-summary {
   gap: 6px;
@@ -354,7 +379,7 @@ button { cursor: pointer; }
 }
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   text-align: center;
 }

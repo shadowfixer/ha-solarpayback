@@ -167,11 +167,27 @@ export const Calc = {
     }
 
     // Default fallback
-    return applicable || {
+    const result = applicable || {
       day: 29.82,
       night: 7.62,
       export: 0
     };
+
+    // If the export rate source is Agile, use the live captured export rate (p/kWh)
+    // as the export price for this month instead of the manual tariff value.
+    try {
+      const settings = await storage.getAllSettings();
+      if (settings.exportRateSource === 'agile' && settings.exportRateP != null) {
+        const agileP = parseFloat(settings.exportRateP);
+        if (!isNaN(agileP)) {
+          result.export = agileP;
+        }
+      }
+    } catch (e) {
+      // Fall back to the manual tariff value if settings can't be read.
+    }
+
+    return result;
   },
 
   // Recalculate all months with current tariffs

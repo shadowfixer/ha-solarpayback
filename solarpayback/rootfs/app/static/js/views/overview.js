@@ -4,21 +4,56 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
-import { RunwayView } from './runway.js?v=1.0.21';
+import { RunwayView } from './runway.js?v=1.1.0';
 
 export class OverviewView {
   constructor(app) {
     this.app = app;
     this.monthlyData = [];
     this.runway = new RunwayView(app);
+    // Hourly background refresh of the Dashboard so the 30-min server-side
+    // updates (Agile rate, current-month figures) appear without a manual reload.
+    // Every 60s over a 25-year window is overkill; hourly keeps it light.
+    this._refreshTimer = setInterval(() => {
+      if (this.app.currentView !== 'overview') return; // only while visible
+      this.render().catch(e => console.error('Hourly dashboard refresh error:', e));
+    }, 60 * 60 * 1000);
+  }
+
+  destroy() {
+    if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = null;
+    }
   }
 
   async render() {
     await this.loadData();
+    this.renderExportRateTag();
     this.renderPaybackSummary();
     this.renderRunway();
     this.renderMonthlyTable();
     this.renderQuickStats();
+  }
+
+  async renderExportRateTag() {
+    const el = document.getElementById('exportRateTag');
+    if (!el) return;
+    try {
+      const settings = await storage.getAllSettings();
+      const source = settings.exportRateSource || 'fixed';
+      if (source === 'agile') {
+        const rate = settings.exportRateP != null ? parseFloat(settings.exportRateP) : null;
+        el.textContent = rate != null && !isNaN(rate) ? `${rate.toFixed(2)}p` : 'Agile · —';
+        el.title = 'Live Agile export rate';
+      } else {
+        const t = await Calc.getTariffForMonth((this.monthlyData[this.monthlyData.length - 1] || {}).month || '');
+        el.textContent = t && t.export != null ? `${parseFloat(t.export).toFixed(2)}p` : '—';
+        el.title = 'Export rate (tariff)';
+      }
+    } catch (e) {
+      el.textContent = '—';
+    }
   }
 
   async loadData() {

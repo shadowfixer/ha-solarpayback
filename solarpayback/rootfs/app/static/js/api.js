@@ -121,15 +121,27 @@ export const api = {
   },
 
   // HA Monthly Aggregation (server-side daily-max)
-  async haGetMonthly(entityIds, startTime, endTime) {
-    const ids = Array.isArray(entityIds) ? entityIds.join(',') : entityIds;
-    const params = new URLSearchParams({
-      entity_ids: ids,
-      end_time: endTime,
-    });
-    if (startTime) params.append('start_time', startTime);
-    return this.request(`/ha/monthly?${params.toString()}`);
-  }
+    async haGetMonthly(entityIds, startTime, endTime) {
+      const ids = Array.isArray(entityIds) ? entityIds.join(',') : entityIds;
+      const params = new URLSearchParams({
+        entity_ids: ids,
+        end_time: endTime,
+      });
+      if (startTime) params.append('start_time', startTime);
+      return this.request(`/ha/monthly?${params.toString()}`);
+    },
+
+    // Export Rate (Agile)
+    async getExportRateCurrent() {
+      return this.request('/export-rates/current');
+    },
+    async getExportRates(month = null) {
+      const path = month ? `/export-rates?month=${encodeURIComponent(month)}` : '/export-rates';
+      return this.request(path);
+    },
+    async captureExportRate(source = 'agile') {
+      return this.request(`/export-rates/capture?source=${encodeURIComponent(source)}`, { method: 'POST' });
+    }
 };
 
 window.HASolarPayBackAPI = api;

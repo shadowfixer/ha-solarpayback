@@ -2,6 +2,31 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.1.0] - 2026-11-24
+
+### Added — Agile export metering (headline)
+- **Export Rate Source** selector in Settings with a **Fixed / Agile** radar toggle.
+  - **Agile** prices export income at the **live Octopus Agile export rate** from
+    Home Assistant (`sensor.…export_current_rate`), captured every 30 minutes; the
+    manual per-month tariff is used otherwise (Fixed).
+  - Switching to Agile captures the live rate immediately; a **Capture Now** button
+    forces a manual read.
+- **Raw export-rate log** (`export_rate_log` table): every rate read is stored with
+  its timestamp and source. This is the persistent, worst-case-safe record of real
+  Agile export prices — so export income can be reconstructed from true rates later,
+  under no scenario a monthly average. Backed up with the add-on's SQLite DB.
+- **30-minute current-month refresh**: the in-flight month's generated / exported /
+  grid / battery / load now update every 30 min from live HA energy sensors, so the
+  dashboard reflects "today so far" without churning historical months.
+- **Export rate tile** on the Dashboard summary (e.g. `18.53p`), showing the live
+  Agile rate when Agile is selected.
+
+### Changed
+- **Hourly Dashboard auto-refresh** so the 30-minute backend updates appear without
+  a manual reload (timed to the long horizon — not a busy 60s poll).
+- Dashboard summary now shows **four** metrics (Paid back / % of cost / Estimated
+  payback / Export rate), laid out 4-across on desktop, stacked on mobile.
+
 ## [1.0.21] - 2026-11-22
 
 ### Reverted
