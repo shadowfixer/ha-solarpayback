@@ -2,6 +2,16 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.1.1] - 2026-11-24
+
+### Fixed
+- **Background tasks could crash if `tzdata` isn't in the add-on image**: the
+  overnight HA sync and the new 30-minute refresh used `ZoneInfo("Europe/London")`,
+  which raises `ZoneInfoNotFoundError` on slim images without the timezone database —
+  so the daily sync could silently never run. The app now resolves its timezone
+  from HA's injected `TZ` env var with a safe UTC fallback, so both background tasks
+  run reliably.
+
 ## [1.1.0] - 2026-11-24
 
 ### Added — Agile export metering (headline)

@@ -134,6 +134,22 @@ def now_ts() -> int:
     return int(datetime.now(timezone.utc).timestamp())
 
 
+def local_tz():
+    """Return the add-on's local timezone, resolving it robustly.
+
+    HA injects a TZ env var into add-on containers (e.g. 'Europe/London'), but the
+    slim image may not ship `tzdata`, so ZoneInfo("Europe/London") can raise
+    ZoneInfoNotFoundError at runtime. Prefer the TZ var and fall back to UTC when
+    the timezone database is unavailable, so background tasks never crash.
+    """
+    name = os.environ.get("TZ") or "UTC"
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        # tzdata missing / unknown name -> UTC (never crash a background task).
+        return timezone.utc
+
+
 # =============================================================================
 # HA Client (server-side, uses Supervisor token)
 # =============================================================================
@@ -854,7 +870,7 @@ async def run_current_month_refresh():
     if not install_date:
         return  # Nothing to anchor to yet.
 
-    now_local = datetime.now(ZoneInfo("Europe/London"))
+    now_local = datetime.now(local_tz())
     month_key = now_local.strftime("%Y-%m")
     month_start = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     end = now_local.astimezone(timezone.utc).isoformat()
@@ -909,7 +925,7 @@ async def daily_sync_loop():
     Uses HA's configured timezone so the run time lands in the user's local night.
     The first run is deferred to the next scheduled time (not immediately on start).
     """
-    tz = ZoneInfo("Europe/London")
+    tz = local_tz()
     while True:
         now_local = datetime.now(tz)
         target = now_local.replace(hour=2, minute=30, second=0, microsecond=0)
