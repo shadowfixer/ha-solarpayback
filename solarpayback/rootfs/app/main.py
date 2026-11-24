@@ -228,8 +228,9 @@ class HAClient:
             params["start_time"] = start_time
         if period:
             params["period"] = period
-        query = "&".join(f"{k}={v}" for k, v in params.items())
-        return await self.request("GET", f"/history/period?{query}")
+        # Pass params via aiohttp so they are URL-encoded — ISO timestamps carry a '+'
+        # timezone separator (…T14:21:17+00:00) which must not be decoded as a space.
+        return await self.request("GET", "/history/period", params=params)
 
     async def get_statistics(self, entity_ids: List[str], start_time: str, end_time: str) -> dict:
         params = {
@@ -237,8 +238,7 @@ class HAClient:
             "start_time": start_time,
             "end_time": end_time,
         }
-        query = "&".join(f"{k}={v}" for k, v in params.items())
-        return await self.request("GET", f"/statistics?{query}")
+        return await self.request("GET", "/statistics", params=params)
 
 
 ha_client = HAClient()

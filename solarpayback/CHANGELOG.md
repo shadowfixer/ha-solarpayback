@@ -2,6 +2,26 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.2.1] - 2026-11-24
+
+### Fixed
+- **Settings → System Configuration: System Capacity dropped onto its own line** at the
+  width the add-on renders inside the HA dashboard. The form's `align-items: end` bottom-aligned
+  the short System Capacity field against the tall Export Start Date / Import Price Rise helper
+  text, so it visually fell below its intended row. The System Configuration form now
+  `align-items: start`, so Row 2 keeps **System Capacity | Export Start Date | Import Price Rise**
+  together as intended.
+- **Cache-buster bumped to `?v=1.2.1`** — the previous deploy changed the code but not the asset
+  query string, so browsers (and HA) kept serving the cached 1.2.0 CSS and the fix appeared not
+  to take. Bumping forces a fresh fetch after update.
+- **Monthly Breakdown / payback never updated** ("None of these values have changed today"): the
+  30-minute current-month refresh and the overnight daily sync both failed with
+  `400 Invalid end_time`. The backend built the HA history URL by hand, and the `+` timezone
+  separator in ISO timestamps (`…T14:21:17+00:00`) was decoded as a space, so HA rejected
+  `end_time`. `get_history`/`get_statistics` now pass params through aiohttp so they are
+  properly URL-encoded — the refresh and sync run again, and today's generated/exported energy
+  (and therefore payback) updates as before.
+
 ## [1.2.0] - 2026-11-24
 
 ### Fixed
