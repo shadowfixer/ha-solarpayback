@@ -346,6 +346,11 @@ button { cursor: pointer; }
   grid-column: 1 / -1;
 }
 
+/* System Configuration fields: fixed 3-per-row so the order reads
+   Row1 Cost | Install | MCS, Row2 Capacity | Export Start | Import Price Rise,
+   Row3 Panel Wear | Save. (auto-fit would push Capacity up and Wear far down.) */
+#formSystem { grid-template-columns: repeat(3, 1fr); }
+
 /* Export rate source (radar toggle) */
 .radar-toggle { display: flex; gap: 8px; flex-wrap: wrap; padding: 0; margin: 0; border: none; }
 .radar-pill { position: relative; }
@@ -721,6 +726,7 @@ tbody tr:hover { background: var(--paper); }
   .summary-grid { grid-template-columns: 1fr; gap: 12px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-grid { grid-template-columns: 1fr; }
+  #formSystem { grid-template-columns: 1fr; }
   .nav-item span { font-size: 0.62rem; }
     .nav-item svg { width: 20px; height: 20px; }
     main { padding-bottom: 115px; }

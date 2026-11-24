@@ -2,6 +2,22 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.2.0] - 2026-11-24
+
+### Fixed
+- **Agile export capture threw a 500** (both when selecting **Agile** and when pressing
+  **Capture Now**): `_capture_export_rate_now` called the async HA REST client without
+  awaiting it, so it received a coroutine instead of a response and raised
+  `AttributeError: 'coroutine' object has no attribute 'get'`. The function is now
+  properly async, all three callers (current-rate read, capture endpoint, 30-min
+  logger) await it, and the capture works end-to-end.
+
+### Changed
+- **Settings → System Configuration laid out 3-per-row** in a deliberate order:
+  Row 1 System Cost | Install Date | MCS · Row 2 System Capacity | Export Start Date |
+  Import Price Rise · Row 3 Panel Wear + Save. (The previous `auto-fit` grid put four
+  fields across, pushing Capacity up and Panel Wear far down.) Mobile stays single-column.
+
 ## [1.1.1] - 2026-11-24
 
 ### Fixed

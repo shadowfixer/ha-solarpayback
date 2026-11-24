@@ -546,12 +546,14 @@ def _active_export_rate_entity(settings: dict) -> str:
     return (settings.get("exportRateEntity") or "").strip() or DEFAULT_EXPORT_RATE_ENTITY
 
 
-def _capture_export_rate_now(source: str = "agile") -> dict:
+async def _capture_export_rate_now(source: str = "agile") -> dict:
     """Read the live export rate from HA, log it, and persist the latest p value.
 
     Returns the captured rate in p/kWh (or None if the entity is unavailable).
     The rate entity states a £/kWh value (e.g. 0.1853); the app works in p/kWh
-    (18.53), so we multiply by 100.
+    (18.53), so we multiply by 100. (async — awaits the HA REST call directly;
+    previously this was run inside a thread without awaiting, which produced a
+    coroutine-vs-dict crash and a 500.)
     """
     settings = _get_settings_map()
     # Only attempt a live read when Agile is the selected source (or when forced).
@@ -560,7 +562,7 @@ def _capture_export_rate_now(source: str = "agile") -> dict:
 
     entity = _active_export_rate_entity(settings)
     try:
-        state = ha_client.request("GET", f"/states/{entity}")
+        state = await ha_client.request("GET", f"/states/{entity}")
     except HTTPException as e:
         return {"ok": False, "rateP": None, "error": f"HA unavailable: {e.detail}"}
     except Exception as e:
@@ -622,7 +624,7 @@ async def get_export_rate_current():
     settings = _get_settings_map()
     source = settings.get("exportRateSource", "fixed")
     if source == "agile":
-        captured = await asyncio.to_thread(_capture_export_rate_now, "agile")
+        captured = await _capture_export_rate_now("agile")
         return captured
     # Fixed: return the latest manual export tariff value (p/kWh).
     conn = get_db()
@@ -639,7 +641,7 @@ async def get_export_rate_current():
 @app.post("/api/export-rates/capture")
 async def capture_export_rate(source: str = "agile"):
     """Force a manual capture/log of the current Agile rate."""
-    captured = await asyncio.to_thread(_capture_export_rate_now, source)
+    captured = await _capture_export_rate_now(source)
     return captured
 
 
@@ -654,7 +656,7 @@ async def export_rate_log_loop():
         settings = _get_settings_map()
         if settings.get("exportRateSource", "fixed") == "agile":
             try:
-                _capture_export_rate_now("agile")
+                await _capture_export_rate_now("agile")
             except Exception as e:
                 print(f"Export rate logger: ERROR {e}")
 
