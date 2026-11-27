@@ -13,10 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Theme script: runs in <head> before paint -->
-    <script src="theme.js?v=1.4.0"></script>
+    <script src="theme.js?v=1.4.1"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=1.4.0">
+    <link rel="stylesheet" href="styles.css?v=1.4.1">
 </head>
 <body>
   <!-- Header -->
@@ -104,6 +104,7 @@
       <div class="card quick-stats">
         <h2>This Month</h2>
         <div class="stats-grid">
+          <!-- Row 1: core generation/use -->
           <div class="stat">
             <span class="stat-label muted">Generated</span>
             <span class="stat-value num" id="statGen">— kWh</span>
@@ -116,6 +117,16 @@
             <span class="stat-label muted">Self-used</span>
             <span class="stat-value num" id="statUsed">— kWh</span>
           </div>
+          <!-- Row 2: export source split -->
+          <div class="stat">
+            <span class="stat-label muted">Solar export</span>
+            <span class="stat-value num"><span class="sun-dot">&#9728;</span> <span id="statSolarExport">—</span> kWh</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label muted">Battery export</span>
+            <span class="stat-value num"><span class="batt-dot">&#128267;</span> <span id="statBatteryExport">—</span> kWh</span>
+          </div>
+          <!-- Row 3: value + income -->
           <div class="stat">
             <span class="stat-label muted">Export Income</span>
             <span class="stat-value num" id="statExportIncome">£—</span>
@@ -125,12 +136,12 @@
             <span class="stat-value num" id="statSolarUsedValue">£—</span>
           </div>
           <div class="stat">
-            <span class="stat-label muted">Solar · Battery export</span>
-            <span class="stat-value num" id="statSolarBatteryExport">— kWh</span>
-          </div>
-          <div class="stat">
             <span class="stat-label muted">Battery self-use value</span>
             <span class="stat-value num" id="statBatterySelfUseValue">£—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label muted">Grid Events (Axle)</span>
+            <span class="stat-value num" id="statGridEvents">£—</span>
           </div>
           <div class="stat">
             <span class="stat-label muted">Total saved</span>
@@ -445,6 +456,6 @@
   </div>
 
   <!-- Scripts -->
-    <script type="module" src="js/app.js?v=1.4.0"></script>
+    <script type="module" src="js/app.js?v=1.4.1"></script>
 </body>
 </html>

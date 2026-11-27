@@ -2,7 +2,17 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
-## [1.4.0] - 2026-11-27 (not yet released)
+## [1.4.1] - 2026-11-27 (UI)
+
+### This Month card — tile layout
+- Split the combined "Solar · Battery export" tile into **Solar export** (yellow ☀) and
+  **Battery export** (🔋), each showing its own kWh.
+- Added a **Grid Events (Axle)** value tile so Export Income + Solar-used + Battery
+  self-use + Grid Events visibly sum to Total saved / payback.
+- New layout order: Generated / Exported / Self-used · Solar export / Battery export ·
+  Export Income / Solar-used value / Battery self-use value / Grid Events (Axle) / Total saved.
+
+## [1.4.0] - 2026-11-27
 
 ### Added — solar/battery breakdown (This Month, Monthly Breakdown, Payback chart)
 - **Total / Solar / Battery** split of export energy and export income, plus battery

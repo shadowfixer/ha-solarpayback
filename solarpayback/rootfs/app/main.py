@@ -36,7 +36,7 @@ SUPERVISOR_API = os.environ.get("SUPERVISOR_API", "http://supervisor")
 
 # App version — matched to config.yaml `version`. Keep in sync on every release;
 # shown on the Settings page so the UI makes it obvious which build is running.
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 # HA REST API base (internal, via supervisor)
 HA_API_BASE = f"{SUPERVISOR_API}/core/api"

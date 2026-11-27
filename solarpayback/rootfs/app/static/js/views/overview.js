@@ -4,7 +4,7 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
-import { RunwayView } from './runway.js?v=1.4.0';
+import { RunwayView } from './runway.js?v=1.4.1';
 
 export class OverviewView {
   constructor(app) {
@@ -139,16 +139,22 @@ export class OverviewView {
     document.getElementById('statSolarUsedValue').textContent = Utils.fmtCurrency(last.solarUsedValue);
 
     // v1.4.0 solar/battery breakdown tiles.
-    const splitEl = document.getElementById('statSolarBatteryExport');
+    const solarExpEl = document.getElementById('statSolarExport');
+    const battExpEl = document.getElementById('statBatteryExport');
     const selfUseEl = document.getElementById('statBatterySelfUseValue');
+    const gridEventsEl = document.getElementById('statGridEvents');
     const totalEl = document.getElementById('statTotalSaved');
-    if (splitEl) {
-      splitEl.textContent = (last.solarExport != null && last.batteryExport != null)
-        ? `${Utils.fmtKwh(last.solarExport)}☀ · ${Utils.fmtKwh(last.batteryExport)}🔋`
-        : '—';
+    if (solarExpEl) {
+      solarExpEl.textContent = last.solarExport != null ? Utils.fmtKwh(last.solarExport) : '—';
+    }
+    if (battExpEl) {
+      battExpEl.textContent = last.batteryExport != null ? Utils.fmtKwh(last.batteryExport) : '—';
     }
     if (selfUseEl) {
       selfUseEl.textContent = Utils.fmtCurrency(last.batterySelfUseValue || 0);
+    }
+    if (gridEventsEl) {
+      gridEventsEl.textContent = Utils.fmtCurrency(last.gridEventIncome || 0);
     }
     if (totalEl) {
       totalEl.textContent = Utils.fmtCurrency(last.totalSaved);
