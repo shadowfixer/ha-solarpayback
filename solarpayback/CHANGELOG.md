@@ -2,6 +2,34 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.3.0] - 2026-11-26
+
+### Added
+- **Slot-accurate export income.** Export income is now priced per 30-minute slot:
+  each slot's export kWh (delta of the lifetime cumulative feedin meter) is multiplied
+  by the Agile export rate logged for that slot, rather than one blended rate applied
+  to the whole month. The monthly total is stored on `monthly_data.export_income` and
+  used by the dashboard.
+- **Export slot log + repair.** New `export_slot_log` table records each half-hour's
+  export kWh and rate. `/api/export-rates/repair` (or the auto 30-min / boot task)
+  rebuilds the in-flight month's slots from HA history: slots before the **export
+  contract start date are priced at £0** (you were not paid for that export); sparse
+  gaps before the rate log began use the month's blended average rate. `main.py`
+  migrates an existing database idempotently (adds `export_income` column).
+- **"This Month" card now splits the saved figure** into **Export Income** and
+  **Solar-used value** tiles, so the Agile pay is distinguished from self-consumption
+  savings. Card layout widened to a 5-column grid.
+
+### Fixed
+- **Battery savings were silently zero.** The server returns snake_case fields
+  (`grid_import`, `bat_charge`, `grid_events`, `export_income`) but `calc.js` read
+  camelCase, so battery arbitrage was never counted (this is why the Nov "Saved" was
+  ~£29 rather than the true ~£42). `calc.js` now normalises the server keys.
+
+### Notes
+- Historical months before the rate log began (24 Nov) are blended, not slot-exact;
+  accuracy improves month-over-month as the per-slot log accumulates.
+
 ## [1.2.1] - 2026-11-24
 
 ### Fixed

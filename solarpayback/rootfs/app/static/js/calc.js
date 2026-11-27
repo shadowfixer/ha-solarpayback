@@ -9,6 +9,18 @@ export const Calc = {
 
   // Calculate monthly savings breakdown
     calculateMonthly(monthData, tariff, systemCost, mcsAnnual, installDate, exportStartDate = null) {
+      // Normalise snake_case (server API) -> camelCase (used in calc). Any key that's
+      // already camelCase is left untouched.
+      const norm = (v) => (v == null ? null : v);
+      const m = {
+        ...monthData,
+        gridImport: (monthData.gridImport ?? monthData.grid_import) ?? 0,
+        batCharge: (monthData.batCharge ?? monthData.bat_charge) ?? 0,
+        batDischarge: (monthData.batDischarge ?? monthData.bat_discharge) ?? 0,
+        gridEvents: (monthData.gridEvents ?? monthData.grid_events) ?? 0,
+        exportIncome: monthData.exportIncome ?? monthData.export_income ?? null,
+      };
+
       const {
         generated = 0,
         exported = 0,
@@ -16,8 +28,9 @@ export const Calc = {
         batCharge = 0,
         batDischarge = 0,
         load = 0,
-        gridEvents = 0
-      } = monthData;
+        gridEvents = 0,
+        exportIncome: serverExportIncome = null
+      } = m;
 
       const dayRate = tariff.day / 100;      // £/kWh
       const nightRate = tariff.night / 100;  // £/kWh
@@ -39,7 +52,11 @@ export const Calc = {
       const solarUsedValue = solarUsed * dayRate;
 
       // 2. Export income (0 until an export contract starts)
-      const exportIncome = exported * effectiveExportRate;
+      // Prefer the server's slot-accurate figure (per half-hour rate, £0 before the
+      // export contract). Fall back to exported × single rate when not provided.
+      const exportIncome = (serverExportIncome != null)
+        ? Number(serverExportIncome)
+        : exported * effectiveExportRate;
 
     // 3. Battery savings (conservative)
     // Only the portion of battery discharge that plausibly offsets peak (day) rate counts.

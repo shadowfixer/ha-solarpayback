@@ -571,7 +571,7 @@ tbody tr:hover { background: var(--paper); }
 .quick-stats { gap: 12px; }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
 }
 .stat { text-align: center; }

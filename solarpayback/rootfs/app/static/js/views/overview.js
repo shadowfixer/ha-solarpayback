@@ -4,7 +4,7 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
-import { RunwayView } from './runway.js?v=1.2.1';
+import { RunwayView } from './runway.js?v=1.3.0';
 
 export class OverviewView {
   constructor(app) {
@@ -129,7 +129,8 @@ export class OverviewView {
     document.getElementById('statGen').textContent = Utils.fmtKwh(last.generated);
     document.getElementById('statExp').textContent = Utils.fmtKwh(last.exported);
     document.getElementById('statUsed').textContent = Utils.fmtKwh(last.solarUsed);
-    document.getElementById('statSaved').textContent = Utils.fmtCurrency(last.totalSaved);
+    document.getElementById('statExportIncome').textContent = Utils.fmtCurrency(last.exportIncome);
+    document.getElementById('statSolarUsedValue').textContent = Utils.fmtCurrency(last.solarUsedValue);
   }
 
   async refreshFromHA() {

@@ -80,6 +80,7 @@ def init_db():
                 bat_discharge REAL DEFAULT 0,
                 load REAL DEFAULT 0,
                 grid_events REAL DEFAULT 0,
+                export_income REAL DEFAULT 0,
                 updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )
         """)
@@ -113,6 +114,21 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_export_rate_month ON export_rate_log(month)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_export_rate_ts ON export_rate_log(ts)")
 
+        # Export slot log: per-half-hour export kWh + the rate applied to that slot.
+        # slot = half-hour bucket start (ISO), month for quick lookup. The export kWh
+        # is the delta of the cumulative feedin across that half hour; rate_p is the
+        # Agile rate logged for that slot (or the monthly blend for sparsely-logged gaps).
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS export_slot_log (
+                slot TEXT PRIMARY KEY,
+                month TEXT NOT NULL,
+                export_kwh REAL DEFAULT 0,
+                rate_p REAL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_export_slot_month ON export_slot_log(month)")
+
         # Grid events table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS grid_events (
@@ -124,6 +140,12 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_grid_date ON grid_events(date)")
+
+        # Migration: add export_income column to a pre-existing monthly_data table
+        # (CREATE TABLE IF NOT EXISTS won't add columns). Idempotent + safe.
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(monthly_data)").fetchall()]
+        if "export_income" not in cols:
+            conn.execute("ALTER TABLE monthly_data ADD COLUMN export_income REAL DEFAULT 0")
 
         conn.commit()
     finally:
@@ -273,6 +295,7 @@ class MonthlyDataModel(BaseModel):
     batDischarge: float = 0
     load: float = 0
     gridEvents: float = 0
+    exportIncome: float = 0
 
 
 class TariffModel(BaseModel):
@@ -312,16 +335,28 @@ async def lifespan(app: FastAPI):
     month_task = asyncio.create_task(monthly_refresh_loop())
     print("Current-month refresh task started")
 
+    # One-off slot/income repair shortly after boot (Agile source only).
+    async def _initial_export_repair():
+        try:
+            await asyncio.sleep(5)
+            await repair_current_month_export()
+        except Exception as e:
+            print(f"Initial export-income repair: ERROR {e}")
+
+    init_repair_task = asyncio.create_task(_initial_export_repair())
+
     yield
 
     # Shutdown
     sync_task.cancel()
     rate_task.cancel()
     month_task.cancel()
+    init_repair_task.cancel()
     try:
         await sync_task
         await rate_task
         await month_task
+        await init_repair_task
     except asyncio.CancelledError:
         pass
     await ha_client.close()
@@ -396,7 +431,7 @@ async def get_monthly_data(month: Optional[str] = None):
                 # than 404 — the frontend uses this during sync to boot-strap a
                 # month that has never been saved.
                 return {"month": month, "year": int(month.split("-")[0]), "generated": 0, "exported": 0,
-                        "grid_import": 0, "bat_charge": 0, "bat_discharge": 0, "load": 0, "grid_events": 0}
+                        "grid_import": 0, "bat_charge": 0, "bat_discharge": 0, "load": 0, "grid_events": 0, "export_income": 0}
             return dict(row)
         else:
             rows = conn.execute("SELECT * FROM monthly_data ORDER BY month").fetchall()
@@ -412,8 +447,8 @@ async def post_monthly_data(data: MonthlyDataModel):
         ts = now_ts()
         conn.execute("""
             INSERT OR REPLACE INTO monthly_data
-            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, export_income, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data.month,
             int(data.month.split("-")[0]),
@@ -424,6 +459,7 @@ async def post_monthly_data(data: MonthlyDataModel):
             data.batDischarge,
             data.load,
             data.gridEvents,
+            data.exportIncome,
             ts
         ))
         conn.commit()
@@ -645,6 +681,19 @@ async def capture_export_rate(source: str = "agile"):
     return captured
 
 
+@app.post("/api/export-rates/repair")
+async def export_rate_repair(month: Optional[str] = None):
+    """Rebuild a month's per-half-hour export slots + export income from HA history.
+
+    Defaults to the in-flight (current) month. Prices each slot with the Agile rate
+    logged for it (monthly blend for gaps, £0 before the export contract start), stores
+    the slots, and writes the month's export_income onto monthly_data.
+    """
+    if month:
+        return await rebuild_month_export_slots(month)
+    return await repair_current_month_export()
+
+
 async def export_rate_log_loop():
     """Background task: capture+log the live Agile export rate every 30 minutes.
 
@@ -659,6 +708,179 @@ async def export_rate_log_loop():
                 await _capture_export_rate_now("agile")
             except Exception as e:
                 print(f"Export rate logger: ERROR {e}")
+
+
+# =============================================================================
+# Slot-based export income
+# =============================================================================
+
+#: Lifetime cumulative export meter (same sensor as monthly exported).
+SLOT_FEEDIN_ENTITY = "sensor.garage_foxess_feedin"
+
+
+def _monthly_avg_rate_p(month: str) -> float:
+    """Average Agile rate (p/kWh) across a month's logged captures; 0 if none."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT rate_p FROM export_rate_log WHERE month = ?", (month,)
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return 0.0
+    return round(sum(r["rate_p"] for r in rows) / len(rows), 4)
+
+
+def _rate_for_slot(month: str, slot_dt, export_start_dt) -> float:
+    """Rate (p/kWh) for a half-hour slot: newest logged at/before it, else monthly blend.
+
+    Slots strictly before the export contract start are priced at 0 (not paid). Gaps
+    before the log began use the month's blended average (option b).
+    """
+    if export_start_dt and slot_dt < export_start_dt:
+        return 0.0
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT rate_p FROM export_rate_log WHERE month = ? AND ts <= ? ORDER BY ts DESC LIMIT 1",
+            (month, slot_dt.isoformat()),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row:
+        return float(row["rate_p"])
+    return _monthly_avg_rate_p(month)
+
+
+def _slot_bucket_start(dt) -> str:
+    """Floor a datetime to the start of its 30-minute slot, as an ISO string."""
+    minute = (dt.minute // 30) * 30
+    return dt.replace(minute=minute, second=0, microsecond=0).isoformat()
+
+
+def _feedin_delta_slots(values: list, window_start: datetime, window_end: datetime) -> dict:
+    """Map 30-minute slot-start -> export kWh, from feedin cumulative history.
+
+    feedin is lifetime-cumulative (total_increasing), so the delta between the first
+    and last cumulative reading inside each half-hour window is the export kWh that
+    landed in that window. Slots with no change are left out (kWh ~ 0).
+    """
+    pts = []
+    for p in values:
+        state = p.get("state")
+        lc = p.get("last_changed")
+        if state is None or not lc:
+            continue
+        try:
+            v = float(state)
+        except (ValueError, TypeError):
+            continue
+        try:
+            dt = datetime.fromisoformat(lc.replace("Z", "+00:00")).astimezone(timezone.utc)
+        except ValueError:
+            continue
+        pts.append((dt, v))
+    pts.sort(key=lambda x: x[0])
+    if not pts:
+        return {}
+    # Anchor: assume the meter held the first known value at window start.
+    pts.insert(0, (window_start, pts[0][1]))
+
+    result = {}
+    cur = window_start
+    slot_step = timedelta(minutes=30)
+    idx = 0
+    while cur < window_end:
+        next_cur = cur + slot_step
+        while idx < len(pts) and pts[idx][0] < cur:
+            idx += 1
+        first_val = None
+        last_val = None
+        j = idx
+        while j < len(pts) and pts[j][0] < next_cur:
+            if first_val is None:
+                first_val = pts[j][1]
+            last_val = pts[j][1]
+            j += 1
+        if first_val is not None and last_val is not None and last_val > first_val:
+            result[_slot_bucket_start(cur)] = round(last_val - first_val, 4)
+        cur = next_cur
+    return result
+
+
+async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None) -> dict:
+    """Repair/top-up the in-flight month's per-half-hour export slots from HA history.
+
+    Derives per-slot export kWh from the feedin cumulative history, prices each slot
+    with the Agile rate logged for it (monthly blend for gaps, £0 before the export
+    contract start), stores rows in export_slot_log, then writes the month's
+    export_income onto monthly_data.
+    """
+    settings = _get_settings_map()
+    export_start_dt = None
+    est = settings.get("exportStartDate", "")
+    if est:
+        try:
+            export_start_dt = datetime.fromisoformat(est).astimezone(timezone.utc)
+        except ValueError:
+            export_start_dt = None
+
+    now = datetime.now(timezone.utc)
+    month_start = datetime(int(month[:4]), int(month[5:7]), 1, tzinfo=timezone.utc)
+    if end_time:
+        try:
+            end_dt = datetime.fromisoformat(end_time)
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            end_dt = now
+    else:
+        end_dt = now
+    if end_dt > now:
+        end_dt = now
+
+    history = await ha_client.get_history(
+        [SLOT_FEEDIN_ENTITY], month_start.isoformat(), end_dt.isoformat(), None
+    )
+    feedin_list = history[0] if history else []
+    slots = _feedin_delta_slots(feedin_list, month_start, end_dt)
+
+    stored = 0
+    total_income = 0.0
+    conn = get_db()
+    try:
+        for slot_key, kwh in slots.items():
+            slot_dt = datetime.fromisoformat(slot_key)
+            rate_p = _rate_for_slot(month, slot_dt, export_start_dt)
+            income = round(kwh * rate_p / 100.0, 2) if rate_p and kwh else 0.0
+            total_income += income
+            conn.execute(
+                "INSERT OR REPLACE INTO export_slot_log (slot, month, export_kwh, rate_p, updated_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (slot_key, month, kwh, rate_p, now_ts()),
+            )
+            stored += 1
+        conn.execute(
+            "UPDATE monthly_data SET export_income = ? WHERE month = ?",
+            (round(total_income, 2), month),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    print(f"Export income: rebuilt {stored} slot(s) for {month}, total £{round(total_income, 2)}")
+    return {"month": month, "slots": stored, "exportIncome": round(total_income, 2)}
+
+
+async def repair_current_month_export() -> dict:
+    """Rebuild the in-flight month's export slots when the Agile source is selected."""
+    settings = _get_settings_map()
+    if settings.get("exportRateSource", "fixed") != "agile":
+        return {"ok": False, "note": "not agile source"}
+    now_local = datetime.now(local_tz())
+    month = now_local.strftime("%Y-%m")
+    return await rebuild_month_export_slots(month)
 
 
 # =============================================================================
@@ -824,26 +1046,28 @@ async def run_daily_ha_sync():
         ts = now_ts()
         for month_key in sorted(all_month_keys):
             existing = conn.execute(
-                "SELECT grid_events FROM monthly_data WHERE month = ?", (month_key,)
+                "SELECT grid_events, export_income FROM monthly_data WHERE month = ?", (month_key,)
             ).fetchone()
             grid_events = existing["grid_events"] if existing else 0
+            export_income = existing["export_income"] if existing else 0
 
             row = {
                 "month": month_key,
                 "year": int(month_key.split("-")[0]),
                 "grid_events": grid_events,
+                "export_income": export_income,
             }
             for db_field, entity in MONTH_FIELD_MAP.items():
                 row[db_field] = sums.get(entity, {}).get(month_key, 0)
 
             conn.execute("""
                 INSERT OR REPLACE INTO monthly_data
-                (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, export_income, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 row["month"], row["year"], row["generated"], row["exported"],
                 row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
-                row["grid_events"], ts
+                row["grid_events"], row["export_income"], ts
             ))
         conn.commit()
         print(f"Daily HA sync: stored/updated {len(all_month_keys)} month(s)")
@@ -883,27 +1107,29 @@ async def run_current_month_refresh():
         print(f"Current-month refresh: ERROR fetching HA history: {e}")
         return
 
-    # Build the row for the current month, preserving grid events.
+    # Build the row for the current month, preserving grid events and export income.
     conn = get_db()
     try:
         ts = now_ts()
         existing = conn.execute(
-            "SELECT grid_events FROM monthly_data WHERE month = ?", (month_key,)
+            "SELECT grid_events, export_income FROM monthly_data WHERE month = ?", (month_key,)
         ).fetchone()
         grid_events = existing["grid_events"] if existing else 0
+        export_income = existing["export_income"] if existing else 0
 
-        row = {"month": month_key, "year": int(month_key.split("-")[0]), "grid_events": grid_events}
+        row = {"month": month_key, "year": int(month_key.split("-")[0]),
+               "grid_events": grid_events, "export_income": export_income}
         for db_field, entity in MONTH_FIELD_MAP.items():
             row[db_field] = sums.get(entity, {}).get(month_key, 0)
 
         conn.execute("""
             INSERT OR REPLACE INTO monthly_data
-            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, export_income, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             row["month"], row["year"], row["generated"], row["exported"],
             row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
-            row["grid_events"], ts
+            row["grid_events"], row["export_income"], ts
         ))
         conn.commit()
         print(f"Current-month refresh: updated {month_key}")
@@ -912,13 +1138,18 @@ async def run_current_month_refresh():
 
 
 async def monthly_refresh_loop():
-    """Background task: refresh the in-flight month every 30 minutes."""
+    """Background task: refresh the in-flight month every 30 minutes, then rebuild
+    the per-half-hour export slots + income from HA history."""
     while True:
         await asyncio.sleep(CURRENT_MONTH_REFRESH_INTERVAL_SECS)
         try:
             await run_current_month_refresh()
         except Exception as e:
             print(f"Current-month refresh: ERROR {e}")
+        try:
+            await repair_current_month_export()
+        except Exception as e:
+            print(f"Export-income repair: ERROR {e}")
 
 
 async def daily_sync_loop():
