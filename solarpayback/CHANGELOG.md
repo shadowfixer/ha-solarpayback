@@ -2,6 +2,26 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.3.1] - 2026-11-26
+
+### Fixed
+- **Export income was massively understated** (down to ~£1.13). The per-slot derivation
+  assumed the `feedin` sensor was a *lifetime* cumulative meter, but it is actually a
+  **per-day cumulative counter that resets to ~0 at midnight UTC**. `_feedin_delta_slots`
+  now treats each UTC day as an independent run (subtracting the day's opening baseline),
+  so the midnight reset no longer drops almost all of the export energy.
+- **Slot total now reconciles to the month's authoritative `exported` figure.** The raw
+  per-slot curve is scaled to equal the `exported` kWh stored on `monthly_data`, so the
+  per-slot export kWh always sum to the dashboard's monthly number (was previously skewed
+  by the reset handling). After this fix, 24–27 Nov rebuilds 56 slots scaling to the
+  stored 23.9 kWh → ~£5.26 export income at the blended Agile rate.
+
+### Notes
+- The stored monthly `exported` (23.9 kWh for Nov) appears **lower than the raw `feedin`
+  counter for 24–27 Nov alone (~45.6 kWh)**. The slot logic now reconciles *to* the
+  stored figure as intended; whether that stored figure itself under-counts is tracked
+  separately and not altered here.
+
 ## [1.3.0] - 2026-11-26
 
 ### Added

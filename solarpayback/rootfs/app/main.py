@@ -760,11 +760,15 @@ def _slot_bucket_start(dt) -> str:
 
 
 def _feedin_delta_slots(values: list, window_start: datetime, window_end: datetime) -> dict:
-    """Map 30-minute slot-start -> export kWh, from feedin cumulative history.
+    """Map 30-minute slot-start -> export kWh, from the feedin sensor's history.
 
-    feedin is lifetime-cumulative (total_increasing), so the delta between the first
-    and last cumulative reading inside each half-hour window is the export kWh that
-    landed in that window. Slots with no change are left out (kWh ~ 0).
+    The Fox ESS `feedin` sensor is a **per-day cumulative** counter that resets to 0
+    just after midnight UTC (values climb through each day, drop to ~0 at the day
+    boundary). So each UTC day is treated as an independent run: the day's baseline
+    (its near-zero start) is subtracted, and export in a half-hour slot is the rise of
+    that day's cumulative curve across the slot. This yields per-slot kWh that sum to
+    the true exported energy, unlike a lifetime-cumulative assumption (which broke on
+    the midnight reset).
     """
     pts = []
     for p in values:
@@ -777,45 +781,60 @@ def _feedin_delta_slots(values: list, window_start: datetime, window_end: dateti
         except (ValueError, TypeError):
             continue
         try:
-            dt = datetime.fromisoformat(lc.replace("Z", "+00:00")).astimezone(timezone.utc)
+            t = datetime.fromisoformat(lc.replace("Z", "+00:00")).astimezone(timezone.utc)
         except ValueError:
             continue
-        pts.append((dt, v))
+        pts.append((t, v))
     pts.sort(key=lambda x: x[0])
     if not pts:
         return {}
-    # Anchor: assume the meter held the first known value at window start.
-    pts.insert(0, (window_start, pts[0][1]))
+
+    # Group readings by UTC day so each day resets independently.
+    from collections import defaultdict
+    by_day = defaultdict(list)
+    for t, v in pts:
+        by_day[t.date()].append((t, v))
 
     result = {}
-    cur = window_start
     slot_step = timedelta(minutes=30)
-    idx = 0
-    while cur < window_end:
-        next_cur = cur + slot_step
-        while idx < len(pts) and pts[idx][0] < cur:
-            idx += 1
-        first_val = None
-        last_val = None
-        j = idx
-        while j < len(pts) and pts[j][0] < next_cur:
-            if first_val is None:
-                first_val = pts[j][1]
-            last_val = pts[j][1]
-            j += 1
-        if first_val is not None and last_val is not None and last_val > first_val:
-            result[_slot_bucket_start(cur)] = round(last_val - first_val, 4)
-        cur = next_cur
+    for day, day_pts in sorted(by_day.items()):
+        # Ignore readings outside the requested window for this pass.
+        day_pts = sorted(day_pts, key=lambda x: x[0])
+        day_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        day_end = day_start + timedelta(days=1)
+        # Baseline = the day's opening reading (post-reset, ~0). Use it so the day
+        # starts at 0 even if the first recorded value is slightly non-zero.
+        base = day_pts[0][1] if day_pts else 0.0
+
+        # Build a step function of the day's cumulative export relative to base.
+        def cum_at(t, pts=day_pts, base=base):
+            prev = 0.0
+            for tt, v in pts:
+                if tt <= t:
+                    prev = max(0.0, v - base)
+                else:
+                    break
+            return prev
+
+        cur = max(day_start, window_start)
+        w_end = min(day_end - timedelta(seconds=1), window_end)
+        while cur < w_end:
+            nxt = min(cur + slot_step, day_end - timedelta(seconds=1))
+            d = max(0.0, cum_at(nxt) - cum_at(cur))
+            if d > 1e-6:
+                result[_slot_bucket_start(cur if cur >= day_start else day_start)] = round(d, 4)
+            cur = nxt
     return result
 
 
 async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None) -> dict:
     """Repair/top-up the in-flight month's per-half-hour export slots from HA history.
 
-    Derives per-slot export kWh from the feedin cumulative history, prices each slot
-    with the Agile rate logged for it (monthly blend for gaps, £0 before the export
-    contract start), stores rows in export_slot_log, then writes the month's
-    export_income onto monthly_data.
+    Derives per-slot export kWh from the feedin sensor (a per-day cumulative counter
+    that resets at midnight — handled by _feedin_delta_slots), reconciles the slot sum
+    to the month's authoritative 'exported' figure, prices each slot with the Agile
+    rate logged for it (monthly blend for gaps, £0 before the export contract start),
+    stores rows in export_slot_log, then writes the month's export_income.
     """
     settings = _get_settings_map()
     export_start_dt = None
@@ -846,6 +865,26 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
     feedin_list = history[0] if history else []
     slots = _feedin_delta_slots(feedin_list, month_start, end_dt)
 
+    # Reconcile the per-slot kWh to the month's authoritative 'exported' total.
+    # The feedin counter resets daily; its per-slot *shape* is reliable, but the run
+    # magnitude can drift from the server's daily-max monthly aggregation, so we scale
+    # the slot curve to equal the stored exported figure.
+    raw_sum = sum(slots.values())
+    conn = get_db()
+    try:
+        exported_row = conn.execute(
+            "SELECT exported FROM monthly_data WHERE month = ?", (month,)
+        ).fetchone()
+    finally:
+        conn.close()
+    monthly_exported = exported_row["exported"] if exported_row and exported_row["exported"] else 0.0
+    scale = 1.0
+    if raw_sum > 0 and monthly_exported and monthly_exported > 0:
+        scale = monthly_exported / raw_sum
+    if abs(scale - 1.0) > 1e-6:
+        for k in slots:
+            slots[k] = round(slots[k] * scale, 4)
+
     stored = 0
     total_income = 0.0
     conn = get_db()
@@ -869,8 +908,10 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
     finally:
         conn.close()
 
-    print(f"Export income: rebuilt {stored} slot(s) for {month}, total £{round(total_income, 2)}")
-    return {"month": month, "slots": stored, "exportIncome": round(total_income, 2)}
+    print(f"Export income: rebuilt {stored} slot(s) for {month}, " +
+          f"exported {round(monthly_exported,2)} kWh -> total £{round(total_income, 2)}")
+    return {"month": month, "slots": stored, "exported": round(monthly_exported, 2),
+            "exportIncome": round(total_income, 2)}
 
 
 async def repair_current_month_export() -> dict:
