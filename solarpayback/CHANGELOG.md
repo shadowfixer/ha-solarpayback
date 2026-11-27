@@ -2,6 +2,30 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.4.0] - 2026-11-27 (not yet released)
+
+### Added — solar/battery breakdown (This Month, Monthly Breakdown, Payback chart)
+- **Total / Solar / Battery** split of export energy and export income, plus battery
+  self-use value (discharge that stays at home, priced at the Agile import rate it avoided).
+- Payback tab cumulative chart reworked from "With/Without Battery" to three lines:
+  **Total savings / Solar / Battery**. This Month card gains "Solar · Battery export",
+  "Battery self-use value" and "Total saved" tiles; Monthly Breakdown shows the
+  ☀/🔋 split inline under Exported.
+
+### Fixed — export double-counting & the old battery-saving estimate
+- **Removed the £9.65 "battery saving" estimate** from `totalSaved`. Payback no longer
+  over-reports. Predbat's export arbitrage already surfaces *inside* export income,
+  priced per half-hour slot from the real Agile export rate.
+- **Battery charge origin is now separated using Predbat's `import_energy_battery`**
+  (grid kWh put into the battery, read from history as trustworthy per-day settled
+  totals). The remainder of the battery's charge came from solar. `solar_used` now
+  **excludes solar that went into the battery** (`generated − solar_export −
+  battery_charge_from_solar`), so a solar kWh that charges the battery is valued once
+  (on discharge), not twice — correct for Predbat charging from both grid and solar
+  (grows in summer).
+- New `battery_charge_from_grid` / `battery_charge_from_solar` columns on `monthly_data`
+  (safe ALTER migration); all sync paths preserve them.
+
 ## [1.3.3] - 2026-11-26
 
 ### Fixed

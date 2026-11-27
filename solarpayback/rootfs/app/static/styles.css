@@ -259,6 +259,9 @@ button { cursor: pointer; }
 .app-version-badge[data-loaded="true"] { color: var(--export); border-color: var(--export); }
 .app-version-badge[data-error="true"] { color: var(--bad); border-color: var(--bad); }
 
+/* Inline solar/battery split in the Monthly Breakdown Exported column */
+.split-inline { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+
 /* Cards */
 .card {
   background: var(--surface);

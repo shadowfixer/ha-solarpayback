@@ -10,74 +10,119 @@ export const Calc = {
   // Calculate monthly savings breakdown
     calculateMonthly(monthData, tariff, systemCost, mcsAnnual, installDate, exportStartDate = null) {
       // Normalise snake_case (server API) -> camelCase (used in calc). Any key that's
-      // already camelCase is left untouched.
-      const norm = (v) => (v == null ? null : v);
-      const m = {
-        ...monthData,
-        gridImport: (monthData.gridImport ?? monthData.grid_import) ?? 0,
-        batCharge: (monthData.batCharge ?? monthData.bat_charge) ?? 0,
-        batDischarge: (monthData.batDischarge ?? monthData.bat_discharge) ?? 0,
-        gridEvents: (monthData.gridEvents ?? monthData.grid_events) ?? 0,
-        exportIncome: monthData.exportIncome ?? monthData.export_income ?? null,
-      };
+    // already camelCase is left untouched.
+    const norm = (v) => (v == null ? null : v);
+    const m = {
+      ...monthData,
+      gridImport: (monthData.gridImport ?? monthData.grid_import) ?? 0,
+      batCharge: (monthData.batCharge ?? monthData.bat_charge) ?? 0,
+      batDischarge: (monthData.batDischarge ?? monthData.bat_discharge) ?? 0,
+      gridEvents: (monthData.gridEvents ?? monthData.grid_events) ?? 0,
+      exportIncome: monthData.exportIncome ?? monthData.export_income ?? null,
+      solarExport: (monthData.solarExport ?? monthData.solar_export) ?? null,
+      batteryExport: (monthData.batteryExport ?? monthData.battery_export) ?? null,
+      batterySelfUse: (monthData.batterySelfUse ?? monthData.battery_selfuse) ?? null,
+      solarExportIncome: (monthData.solarExportIncome ?? monthData.solar_export_income) ?? null,
+      batteryExportIncome: (monthData.batteryExportIncome ?? monthData.battery_export_income) ?? null,
+      batterySelfUseValue: (monthData.batterySelfUseValue ?? monthData.battery_selfuse_value) ?? null,
+    };
 
-      const {
-        generated = 0,
-        exported = 0,
-        gridImport = 0,
-        batCharge = 0,
-        batDischarge = 0,
-        load = 0,
-        gridEvents = 0,
-        exportIncome: serverExportIncome = null
-      } = m;
+    const {
+      generated = 0,
+      exported = 0,
+      gridImport = 0,
+      batCharge = 0,
+      batDischarge = 0,
+      load = 0,
+      gridEvents = 0,
+      exportIncome: serverExportIncome = null,
+      solarExport: serverSolarExport = null,
+      batteryExport: serverBatteryExport = null,
+      batterySelfUse: serverBatterySelfUse = null,
+      solarExportIncome: serverSolarExportIncome = null,
+      batteryExportIncome: serverBatteryExportIncome = null,
+      batterySelfUseValue: serverBatterySelfUseValue = null
+    } = m;
 
-      const dayRate = tariff.day / 100;      // £/kWh
-      const nightRate = tariff.night / 100;  // £/kWh
-      const exportRate = tariff.export / 100; // £/kWh
+    const dayRate = tariff.day / 100;      // £/kWh
+    const nightRate = tariff.night / 100;  // £/kWh
+    const exportRate = tariff.export / 100; // £/kWh
 
-      // Export income only counts once the user has an export contract.
-      // Until exportStartDate, any power generated-and-exported does NOT earn money,
-      // so we treat the export rate as 0 for those months. Grid events (e.g. axle)
-      // still count separately below — those are their own payments.
-      const exportStartMonth = exportStartDate ? exportStartDate.slice(0, 7) : null; // "YYYY-MM"
-      const monthKey = monthData.month; // "YYYY-MM"
-      const exporting = exportStartMonth ? monthKey >= exportStartMonth : false;
-      const effectiveExportRate = exporting ? exportRate : 0;
+    // Export income only counts once the user has an export contract.
+    // Until exportStartDate, any power generated-and-exported does NOT earn money,
+    // so we treat the export rate as 0 for those months. Grid events (e.g. axle)
+    // still count separately below — those are their own payments.
+    const exportStartMonth = exportStartDate ? exportStartDate.slice(0, 7) : null; // "YYYY-MM"
+    const monthKey = monthData.month; // "YYYY-MM"
+    const exporting = exportStartMonth ? monthKey >= exportStartMonth : false;
+    const effectiveExportRate = exporting ? exportRate : 0;
 
-      // Solar used = Generated - Exported
-      const solarUsed = Math.max(0, generated - exported);
+    // v1.4.0: the server provides the SOLAR / BATTERY split of export energy and its
+    // income, plus battery discharge that is consumed at home (its value = the Agile
+    // import rate it avoided). When present (Agile months rebuilt after this version),
+    // we use those authoritative numbers instead of estimating anything. Fall back to
+    // the old simple split for older/fixed-tariff months.
+    const hasBreakdown = serverSolarExport != null && serverBatteryExport != null;
+  // Battery CHARGE origin from Predbat: grid kWh is import_energy_battery; the rest
+  // of the battery's charge must have come from solar. Used to stop double-counting —
+  // solar that went INTO the battery is not "solar used at home" (it resurfaces as
+  // battery discharge), so we exclude charging_from_solar from solar_used.
+  const batteryChargeFromGrid = (m.batteryChargeFromGrid ?? (monthData.battery_charge_from_grid ?? 0)) || 0;
+  const batteryChargeFromSolar = (m.batteryChargeFromSolar ?? (monthData.battery_charge_from_solar ?? 0)) || 0;
+  const solarExport = hasBreakdown ? Number(serverSolarExport) : Math.max(0, exported);
+  const batteryExport = hasBreakdown ? Number(serverBatteryExport) : 0;
+  const batterySelfUse = hasBreakdown ? (Number(serverBatterySelfUse) || 0) : 0;
 
-      // 1. Solar used value (at day rate) - self-consumption avoids buying at day rate
-      const solarUsedValue = solarUsed * dayRate;
+  // 1. Solar used at home = Generated − solar sent to grid − solar absorbed by battery.
+  //    (Excluding battery-charged-from-solar prevents the solar→battery→discharge
+  //    double count: that energy is valued once, on discharge, not twice.)
+  const solarUsed = Math.max(0, generated - solarExport - batteryChargeFromSolar);
 
-      // 2. Export income (0 until an export contract starts)
-      // Prefer the server's slot-accurate figure (per half-hour rate, £0 before the
-      // export contract). Fall back to exported × single rate when not provided.
-      const exportIncome = (serverExportIncome != null)
-        ? Number(serverExportIncome)
-        : exported * effectiveExportRate;
+    // 2. Solar used value (at day rate) - self-consumed solar avoids buying at day rate
+    const solarUsedValue = solarUsed * dayRate;
 
-    // 3. Battery savings (conservative)
-    // Only the portion of battery discharge that plausibly offsets peak (day) rate counts.
-    // Cap by min(charge, discharge) since you can't discharge more than you charged.
-    // Apply round-trip efficiency (90%): usable discharge = charge * efficiency.
-    // Saving per kWh discharged = dayRate - nightRate (buy cheap at night, avoid expensive day).
-    // We only count savings on the amount that was actually charged at night rate.
-    // Conservative approach: usable kWh = min(batCharge * efficiency, batDischarge)
-    // But we don't know what % of batCharge was at night rate vs solar.
-    // Assume ALL battery charge could be from night rate (upper bound).
-    // Real savings = min(batCharge * BATTERY_EFFICIENCY, batDischarge) * (dayRate - nightRate)
-    // This is the arbitrage: buy at nightRate, sell/avoid at dayRate.
-    const usableDischarge = Math.min(batCharge * Calc.BATTERY_EFFICIENCY, batDischarge);
-    const batterySavingPerKwh = Math.max(0, dayRate - nightRate); // only the spread
-    const batterySaving = usableDischarge * batterySavingPerKwh;
+    // 3. Export income (0 until an export contract starts)
+    // Prefer the server's slot-accurate figure (per half-hour rate, £0 before the
+    // export contract). When the server also broke it into solar/battery, use that;
+    // otherwise fall back to exported × single rate.
+    let exportIncome, solarExportIncome, batteryExportIncome;
+    if (serverExportIncome != null) {
+      exportIncome = Number(serverExportIncome);
+      // Sum of the split, falling back to the total when a part is missing.
+      const s = (v) => (v == null ? 0 : Number(v));
+      const splitSum = s(serverSolarExportIncome) + s(serverBatteryExportIncome);
+      if (hasBreakdown && splitSum > 0) {
+        solarExportIncome = s(serverSolarExportIncome);
+        batteryExportIncome = s(serverBatteryExportIncome);
+      } else {
+        // No per-source split available — attribute all exported income to solar and
+        // separately credit the measured battery export at the same rate.
+        const rateP = exported > 0 ? (exportIncome / exported) * 100 : effectiveExportRate * 100;
+        solarExportIncome = solarExport * rateP / 100;
+        batteryExportIncome = batteryExport * rateP / 100;
+      }
+    } else {
+      exportIncome = exported * effectiveExportRate;
+      const rateP = effectiveExportRate * 100;
+      solarExportIncome = solarExport * rateP / 100;
+      batteryExportIncome = batteryExport * rateP / 100;
+    }
 
-    // 4. Grid events (manual entries)
+    // 4. Battery: the export it did (already counted in exportIncome via
+    //    batteryExportIncome) PLUS the value of battery energy used at home.
+    //    Battery discharge that stayed in the house avoided paying the Agile import
+    //    rate — the server prices that per slot (batterySelfUseValue).
+    const batterySelfUseValue = (serverBatterySelfUseValue != null)
+      ? Number(serverBatterySelfUseValue)
+      : batterySelfUse * Math.max(0, dayRate); // fallback: value at day rate
+
+    // 5. Grid events (manual entries, e.g. Axle)
     const gridEventIncome = gridEvents;
 
-    // Total saved this month
-    const totalSaved = solarUsedValue + exportIncome + batterySaving + gridEventIncome;
+    // Total saved this month: solar used + export income (solar + battery) +
+    // battery self-use value + grid events. No separate "battery arbitrage" estimate —
+    // Predbat's export arbitrage already shows up inside export income, priced per slot.
+    const totalSaved = solarUsedValue + exportIncome + batterySelfUseValue + gridEventIncome;
 
     // MCS estimate for this month
     const monthIdx = new Date(monthData.month + '-01').getMonth();
@@ -92,7 +137,10 @@ export const Calc = {
       month: monthData.month,
       generated,
       exported,
+      solarExport,
+      batteryExport,
       solarUsed,
+      batterySelfUse,
       gridImport,
       batCharge,
       batDischarge,
@@ -100,7 +148,9 @@ export const Calc = {
       gridEvents,
       solarUsedValue,
       exportIncome,
-      batterySaving,
+      solarExportIncome,
+      batteryExportIncome,
+      batterySelfUseValue,
       gridEventIncome,
       totalSaved,
       mcsEstimate,
@@ -110,7 +160,7 @@ export const Calc = {
       nightRate: tariff.night,
       exportRate: tariff.export
     };
-  },
+          },
 
   // Calculate cumulative payback
   calculatePayback(months, systemCost) {

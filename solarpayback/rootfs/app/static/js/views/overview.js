@@ -4,7 +4,7 @@ import { Utils } from '../utils.js';
 import { storage } from '../storage.js';
 import { Calc } from '../calc.js';
 import { api } from '../api.js';
-import { RunwayView } from './runway.js?v=1.3.3';
+import { RunwayView } from './runway.js?v=1.4.0';
 
 export class OverviewView {
   constructor(app) {
@@ -102,11 +102,16 @@ export class OverviewView {
     const tbody = document.getElementById('monthlyBody');
     if (!tbody) return;
 
-    tbody.innerHTML = this.monthlyData.map(m => `
+    tbody.innerHTML = this.monthlyData.map(m => {
+      // Show the solar/battery split under Exported when available, else just total.
+      const expCell = (m.solarExport != null && m.batteryExport != null)
+        ? `${Utils.fmtKwh(m.exported)} <span class="split-inline">(${Utils.fmtKwh(m.solarExport)}☀ · ${Utils.fmtKwh(m.batteryExport)}🔋)</span>`
+        : Utils.fmtKwh(m.exported);
+      return `
       <tr data-month="${m.month}" style="cursor:pointer;">
         <td>${Utils.formatMonth(m.month)}</td>
         <td class="num">${Utils.fmtKwh(m.generated)}</td>
-        <td class="num">${Utils.fmtKwh(m.exported)}</td>
+        <td class="num">${expCell}</td>
         <td class="num">${Utils.fmtKwh(m.solarUsed)}</td>
         <td class="num positive">${Utils.fmtCurrency(m.totalSaved)}</td>
         <td class="num">${Utils.fmtCurrency(m.gridEventIncome)}</td>
@@ -114,7 +119,8 @@ export class OverviewView {
           ${m.vsEstimate >= 0 ? '+' : ''}${Utils.fmtKwh(m.vsEstimate, 0)} (${Utils.fmtPct(m.vsEstimatePct, 0)})
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     // Click to edit
     tbody.querySelectorAll('tr').forEach(tr => {
@@ -131,6 +137,22 @@ export class OverviewView {
     document.getElementById('statUsed').textContent = Utils.fmtKwh(last.solarUsed);
     document.getElementById('statExportIncome').textContent = Utils.fmtCurrency(last.exportIncome);
     document.getElementById('statSolarUsedValue').textContent = Utils.fmtCurrency(last.solarUsedValue);
+
+    // v1.4.0 solar/battery breakdown tiles.
+    const splitEl = document.getElementById('statSolarBatteryExport');
+    const selfUseEl = document.getElementById('statBatterySelfUseValue');
+    const totalEl = document.getElementById('statTotalSaved');
+    if (splitEl) {
+      splitEl.textContent = (last.solarExport != null && last.batteryExport != null)
+        ? `${Utils.fmtKwh(last.solarExport)}☀ · ${Utils.fmtKwh(last.batteryExport)}🔋`
+        : '—';
+    }
+    if (selfUseEl) {
+      selfUseEl.textContent = Utils.fmtCurrency(last.batterySelfUseValue || 0);
+    }
+    if (totalEl) {
+      totalEl.textContent = Utils.fmtCurrency(last.totalSaved);
+    }
   }
 
   async refreshFromHA() {

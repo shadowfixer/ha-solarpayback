@@ -36,38 +36,37 @@ export class PaybackView {
     this.rawMonths.sort((a, b) => a.month.localeCompare(b.month));
   }
 
-  // Calculate cumulative savings for both scenarios
-  // WITH battery: solar self-use + export income + battery saving + grid events
-  // WITHOUT battery: solar self-use + export income only (grid events included as external income)
-  calculateCumulativeScenarios() {
-    const withBattery = [];
-    const withoutBattery = [];
+  // Calculate cumulative savings for the three series shown on the Payback chart:
+    //   total   — all savings (solar used + ALL export income incl. battery + battery
+    //             self-use value + grid events)
+    //   solar   — panels only (solar used + solar export income + grid events)
+    //   battery — Predbat battery contribution (battery export income + battery self-use value)
+    // Grid events are external income kept in 'solar' and 'total' (not battery-dependent).
+    calculateCumulativeScenarios() {
+      const total = [];
+      const solar = [];
+      const battery = [];
 
-    let cumWith = 0;
-    let cumWithout = 0;
+      let cumTotal = 0;
+      let cumSolar = 0;
+      let cumBattery = 0;
 
-    for (const month of this.monthlyData) {
-      // With battery = totalSaved (already includes: solarUsedValue + exportIncome + batterySaving + gridEventIncome)
-      cumWith += month.totalSaved;
-      withBattery.push({
-        month: month.month,
-        cumulative: cumWith,
-        ...month
-      });
+      for (const month of this.monthlyData) {
+        cumTotal += month.totalSaved;
 
-      // Without battery = totalSaved - batterySaving - gridEventIncome (grid events are external, so KEEP them per user requirement)
-      // Actually user said: "grid events should count in BOTH scenarios since they are external income not battery-dependent"
-      const withoutBatterySaving = month.totalSaved - month.batterySaving;
-      cumWithout += withoutBatterySaving;
-      withoutBattery.push({
-        month: month.month,
-        cumulative: cumWithout,
-        ...month
-      });
+        const solarMonth = (month.solarUsedValue || 0) + (month.solarExportIncome || 0) + (month.gridEventIncome || 0);
+        const batteryMonth = (month.batteryExportIncome || 0) + (month.batterySelfUseValue || 0);
+
+        cumSolar += solarMonth;
+        cumBattery += batteryMonth;
+
+        total.push({ month: month.month, cumulative: cumTotal, ...month });
+        solar.push({ month: month.month, cumulative: cumSolar, ...month });
+        battery.push({ month: month.month, cumulative: cumBattery, ...month });
+      }
+
+      return { total, solar, battery };
     }
-
-    return { withBattery, withoutBattery };
-  }
 
   // Find payback date (month where cumulative >= systemCost)
   findPaybackDate(scenarioData) {
@@ -92,151 +91,145 @@ export class PaybackView {
   }
 
   renderCumulativeChart() {
-    const container = document.getElementById('cumulativeChart');
-    const datesContainer = document.getElementById('paybackDates');
-    if (!container) return;
+      const container = document.getElementById('cumulativeChart');
+      const datesContainer = document.getElementById('paybackDates');
+      if (!container) return;
 
-    const { withBattery, withoutBattery } = this.calculateCumulativeScenarios();
-    const paybackWith = this.findPaybackDate(withBattery);
-    const paybackWithout = this.findPaybackDate(withoutBattery);
+      const { total, solar, battery } = this.calculateCumulativeScenarios();
+      const paybackTotal = this.findPaybackDate(total);
 
-    // Render payback dates
-    datesContainer.innerHTML = `
-      <div class="payback-date with-battery" style="padding:8px 12px; background:var(--sun-soft); border:1px solid var(--sun); border-radius:8px;">
-        <strong style="color:var(--sun-ink);">With Battery:</strong>
-        <span class="num" style="margin-left:8px;">${paybackWith ? paybackWith.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'Not reached'}</span>
-      </div>
-      <div class="payback-date without-battery" style="padding:8px 12px; background:var(--export); color:white; border-radius:8px;">
-        <strong>Without Battery:</strong>
-        <span class="num" style="margin-left:8px;">${paybackWithout ? paybackWithout.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'Not reached'}</span>
-      </div>
-    `;
-
-    // SVG chart dimensions
-    const width = Math.min(720, container.clientWidth || 720);
-    const height = 320;
-    const padding = { top: 20, right: 80, bottom: 40, left: 80 };
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
-
-    // Data points for lines
-    const allPoints = [...withBattery, ...withoutBattery];
-    const maxCumulative = Math.max(...allPoints.map(p => p.cumulative), this.systemCost * 1.1);
-    const minCumulative = Math.min(0, ...allPoints.map(p => p.cumulative));
-
-    const months = withBattery.map(m => m.month);
-    const xStep = chartWidth / Math.max(1, months.length - 1);
-
-    // Scales
-    const xScale = (i) => padding.left + i * xStep;
-    const yScale = (val) => padding.top + chartHeight - ((val - minCumulative) / (maxCumulative - minCumulative)) * chartHeight;
-
-    // Build path data for with-battery line
-    const withPath = withBattery.map((m, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(m.cumulative)}`).join(' ');
-    const withoutPath = withoutBattery.map((m, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(m.cumulative)}`).join(' ');
-
-    // System cost line
-    const costY = yScale(this.systemCost);
-    const costLine = `M ${padding.left} ${costY} L ${width - padding.right} ${costY}`;
-
-    // X-axis labels (show every nth month to avoid crowding)
-    const labelStep = Math.max(1, Math.ceil(months.length / 10));
-    const xLabels = months.map((m, i) => {
-      if (i % labelStep !== 0 && i !== months.length - 1) return '';
-      const x = xScale(i);
-      return `<text x="${x}" y="${height - padding.bottom + 18}" text-anchor="middle" font-size="0.7rem" fill="var(--muted)">${Utils.formatMonth(m)}</text>`;
-    }).join('');
-
-    // Y-axis labels (5 ticks)
-    const yTicks = 5;
-    const yLabels = Array.from({ length: yTicks + 1 }, (_, i) => {
-      const val = minCumulative + (maxCumulative - minCumulative) * (i / yTicks);
-      const y = yScale(val);
-      return `
-        <line x1="${padding.left - 6}" y1="${y}" x2="${padding.left}" y2="${y}" stroke="var(--line)" stroke-width="1"/>
-        <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" font-size="0.7rem" fill="var(--muted)">${Utils.fmtCurrency(val, 0)}</text>
+      // Render payback dates
+      datesContainer.innerHTML = `
+        <div class="payback-date with-battery" style="padding:8px 12px; background:var(--sun-soft); border:1px solid var(--sun); border-radius:8px;">
+          <strong style="color:var(--sun-ink);">Payback (total savings):</strong>
+          <span class="num" style="margin-left:8px;">${paybackTotal ? paybackTotal.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'Not reached'}</span>
+        </div>
       `;
-    }).join('');
 
-    // Grid lines
-    const gridLines = Array.from({ length: yTicks + 1 }, (_, i) => {
-      const val = minCumulative + (maxCumulative - minCumulative) * (i / yTicks);
-      const y = yScale(val);
-      return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="var(--line)" stroke-width="0.5" opacity="0.5"/>`;
-    }).join('');
+      // SVG chart dimensions
+      const width = Math.min(720, container.clientWidth || 720);
+      const height = 320;
+      const padding = { top: 20, right: 80, bottom: 40, left: 80 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
 
-    // Vertical grid lines
-    const vGridLines = months.map((_, i) => {
-      const x = xScale(i);
-      return `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="0.5" opacity="0.3"/>`;
-    }).join('');
+      // Data points for lines (all three series share the same X months)
+      const allPoints = [...total, ...solar, ...battery];
+      const maxCumulative = Math.max(...allPoints.map(p => p.cumulative), this.systemCost * 1.1);
+      const minCumulative = Math.min(0, ...allPoints.map(p => p.cumulative));
 
-    // Payback marker circles
-    const paybackMarkers = [];
-    if (paybackWith) {
-      const idx = withBattery.findIndex(m => m.cumulative >= this.systemCost);
-      if (idx >= 0) {
-        const x = xScale(idx);
-        const y = yScale(withBattery[idx].cumulative);
-        paybackMarkers.push(`
-          <circle cx="${x}" cy="${y}" r="6" fill="var(--sun)" stroke="var(--surface)" stroke-width="2"/>
-          <text x="${x}" y="${y - 12}" text-anchor="middle" font-size="0.65rem" fill="var(--sun-ink)" font-weight="700">Payback</text>
-        `);
+      const months = total.map(m => m.month);
+      const xStep = chartWidth / Math.max(1, months.length - 1);
+
+      // Scales
+      const xScale = (i) => padding.left + i * xStep;
+      const yScale = (val) => padding.top + chartHeight - ((val - minCumulative) / (maxCumulative - minCumulative)) * chartHeight;
+
+      // Build path data for total / solar / battery lines
+      const pathFor = (series) => series.map((m, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(m.cumulative)}`).join(' ');
+      const totalPath = pathFor(total);
+      const solarPath = pathFor(solar);
+      const batteryPath = pathFor(battery);
+
+      // System cost line
+      const costY = yScale(this.systemCost);
+      const costLine = `M ${padding.left} ${costY} L ${width - padding.right} ${costY}`;
+
+      // X-axis labels (show every nth month to avoid crowding)
+      const labelStep = Math.max(1, Math.ceil(months.length / 10));
+      const xLabels = months.map((m, i) => {
+        if (i % labelStep !== 0 && i !== months.length - 1) return '';
+        const x = xScale(i);
+        return `<text x="${x}" y="${height - padding.bottom + 18}" text-anchor="middle" font-size="0.7rem" fill="var(--muted)">${Utils.formatMonth(m)}</text>`;
+      }).join('');
+
+      // Y-axis labels (5 ticks)
+      const yTicks = 5;
+      const yLabels = Array.from({ length: yTicks + 1 }, (_, i) => {
+        const val = minCumulative + (maxCumulative - minCumulative) * (i / yTicks);
+        const y = yScale(val);
+        return `
+          <line x1="${padding.left - 6}" y1="${y}" x2="${padding.left}" y2="${y}" stroke="var(--line)" stroke-width="1"/>
+          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" font-size="0.7rem" fill="var(--muted)">${Utils.fmtCurrency(val, 0)}</text>
+        `;
+      }).join('');
+
+      // Grid lines
+      const gridLines = Array.from({ length: yTicks + 1 }, (_, i) => {
+        const val = minCumulative + (maxCumulative - minCumulative) * (i / yTicks);
+        const y = yScale(val);
+        return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="var(--line)" stroke-width="0.5" opacity="0.5"/>`;
+      }).join('');
+
+      // Vertical grid lines
+      const vGridLines = months.map((_, i) => {
+        const x = xScale(i);
+        return `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="0.5" opacity="0.3"/>`;
+      }).join('');
+
+      // Total payback marker
+      const paybackMarkers = [];
+      if (paybackTotal) {
+        const idx = total.findIndex(m => m.cumulative >= this.systemCost);
+        if (idx >= 0) {
+          const x = xScale(idx);
+          const y = yScale(total[idx].cumulative);
+          paybackMarkers.push(`
+            <circle cx="${x}" cy="${y}" r="6" fill="var(--sun)" stroke="var(--surface)" stroke-width="2"/>
+            <text x="${x}" y="${y - 12}" text-anchor="middle" font-size="0.65rem" fill="var(--sun-ink)" font-weight="700">Payback</text>
+          `);
+        }
       }
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" style="display:block;" role="img" aria-label="Cumulative savings chart split by solar, battery and total">
+          <!-- Grid -->
+          ${gridLines}
+          ${vGridLines}
+
+          <!-- System cost threshold line -->
+          <path d="${costLine}" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6,4" fill="none"/>
+          <text x="${width - padding.right + 10}" y="${costY - 4}" font-size="0.7rem" fill="var(--bad)" font-weight="600">System Cost (${Utils.fmtCurrency(this.systemCost, 0)})</text>
+
+          <!-- Battery-only line -->
+          <path d="${batteryPath}" stroke="var(--export)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5,4" opacity="0.85"/>
+
+          <!-- Solar-only line -->
+          <path d="${solarPath}" stroke="var(--sun)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Total line -->
+          <path d="${totalPath}" stroke="var(--panel)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Payback markers -->
+          ${paybackMarkers.join('')}
+
+          <!-- Y axis -->
+          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
+          ${yLabels}
+
+          <!-- X axis -->
+          <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
+          ${xLabels}
+        </svg>
+
+        <!-- Legend (below chart) -->
+        <div style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-top:10px; font-size:0.8rem; font-weight:600;">
+          <span style="display:inline-flex; align-items:center; gap:6px; color:var(--panel);">
+            <span style="width:22px; height:3px; background:var(--panel); border-radius:2px; display:inline-block;"></span>
+            Total savings
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:6px; color:var(--sun);">
+            <span style="width:22px; height:3px; background:var(--sun); border-radius:2px; display:inline-block;"></span>
+            Solar
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:6px; color:var(--export);">
+            <span style="width:22px; height:3px; background:var(--export); border-radius:2px; display:inline-block;"></span>
+            Battery
+          </span>
+        </div>
+        <p class="muted" style="font-size:0.78rem; text-align:center; margin-top:6px;">Grid-event income is included in both the Solar and Total series.</p>
+      `;
     }
-    if (paybackWithout) {
-      const idx = withoutBattery.findIndex(m => m.cumulative >= this.systemCost);
-      if (idx >= 0) {
-        const x = xScale(idx);
-        const y = yScale(withoutBattery[idx].cumulative);
-        paybackMarkers.push(`
-          <circle cx="${x}" cy="${y}" r="6" fill="var(--export)" stroke="var(--surface)" stroke-width="2"/>
-          <text x="${x}" y="${y - 12}" text-anchor="middle" font-size="0.65rem" fill="white" font-weight="700">Payback</text>
-        `);
-      }
-    }
-
-    container.innerHTML = `
-      <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" style="display:block;" role="img" aria-label="Cumulative savings chart with battery vs without battery">
-        <!-- Grid -->
-        ${gridLines}
-        ${vGridLines}
-
-        <!-- System cost threshold line -->
-        <path d="${costLine}" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6,4" fill="none"/>
-        <text x="${width - padding.right + 10}" y="${costY - 4}" font-size="0.7rem" fill="var(--bad)" font-weight="600">System Cost (${Utils.fmtCurrency(this.systemCost, 0)})</text>
-
-        <!-- Without battery line -->
-        <path d="${withoutPath}" stroke="var(--export)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-
-        <!-- With battery line -->
-        <path d="${withPath}" stroke="var(--sun)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-
-        <!-- Payback markers -->
-        ${paybackMarkers.join('')}
-
-        <!-- Y axis -->
-        <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
-        ${yLabels}
-
-        <!-- X axis -->
-                <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="var(--line)" stroke-width="1"/>
-                ${xLabels}
-              </svg>
-
-              <!-- Legend (below chart) -->
-              <div style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-top:10px; font-size:0.8rem; font-weight:600;">
-                <span style="display:inline-flex; align-items:center; gap:6px; color:var(--sun);">
-                  <span style="width:22px; height:3px; background:var(--sun); border-radius:2px; display:inline-block;"></span>
-                  With Battery
-                </span>
-                <span style="display:inline-flex; align-items:center; gap:6px; color:var(--export);">
-                  <span style="width:22px; height:3px; background:var(--export); border-radius:2px; display:inline-block;"></span>
-                  Without Battery
-                </span>
-              </div>
-            `;
-  }
 
   // Calculate projected payback date at each observation point (month)
   // This shows how the payback date MOVES over time as real data accumulates

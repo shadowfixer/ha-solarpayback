@@ -36,7 +36,7 @@ SUPERVISOR_API = os.environ.get("SUPERVISOR_API", "http://supervisor")
 
 # App version — matched to config.yaml `version`. Keep in sync on every release;
 # shown on the Settings page so the UI makes it obvious which build is running.
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.4.0"
 
 # HA REST API base (internal, via supervisor)
 HA_API_BASE = f"{SUPERVISOR_API}/core/api"
@@ -122,12 +122,21 @@ def init_db():
         # slot = half-hour bucket start (ISO), month for quick lookup. The export kWh
         # is the delta of the cumulative feedin across that half hour; rate_p is the
         # Agile rate logged for that slot (or the monthly blend for sparsely-logged gaps).
+        # solar/battery split columns (v1.4.0): discharge_kwh = battery discharge in the
+        # slot; battery_export_kwh = min(discharge_kwh, export_kwh) — the exported kWh
+        # that came out of the battery (Predbat export arbitrage); solar_export_kwh =
+        # export_kwh - battery_export_kwh — panels straight to grid. import_rate_p is the
+        # Agile import rate for the slot, used to value battery discharge that stays at home.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS export_slot_log (
                 slot TEXT PRIMARY KEY,
                 month TEXT NOT NULL,
                 export_kwh REAL DEFAULT 0,
                 rate_p REAL DEFAULT 0,
+                discharge_kwh REAL DEFAULT 0,
+                battery_export_kwh REAL DEFAULT 0,
+                solar_export_kwh REAL DEFAULT 0,
+                import_rate_p REAL DEFAULT 0,
                 updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )
         """)
@@ -150,6 +159,32 @@ def init_db():
         cols = [r[1] for r in conn.execute("PRAGMA table_info(monthly_data)").fetchall()]
         if "export_income" not in cols:
             conn.execute("ALTER TABLE monthly_data ADD COLUMN export_income REAL DEFAULT 0")
+
+        # v1.4.0 solar/battery breakdown columns on monthly_data.
+        monthly_new = {
+            "solar_export": "REAL DEFAULT 0",
+            "battery_export": "REAL DEFAULT 0",
+            "battery_selfuse": "REAL DEFAULT 0",
+            "solar_export_income": "REAL DEFAULT 0",
+            "battery_export_income": "REAL DEFAULT 0",
+            "battery_selfuse_value": "REAL DEFAULT 0",
+            "battery_charge_from_grid": "REAL DEFAULT 0",
+            "battery_charge_from_solar": "REAL DEFAULT 0",
+        }
+        for cname, cdef in monthly_new.items():
+            if cname not in cols:
+                conn.execute(f"ALTER TABLE monthly_data ADD COLUMN {cname} {cdef}")
+
+        # v1.4.0 solar/battery split columns on export_slot_log (existing DBs).
+        slot_cols = [r[1] for r in conn.execute("PRAGMA table_info(export_slot_log)").fetchall()]
+        for cname, cdef in {
+            "discharge_kwh": "REAL DEFAULT 0",
+            "battery_export_kwh": "REAL DEFAULT 0",
+            "solar_export_kwh": "REAL DEFAULT 0",
+            "import_rate_p": "REAL DEFAULT 0",
+        }.items():
+            if cname not in slot_cols:
+                conn.execute(f"ALTER TABLE export_slot_log ADD COLUMN {cname} {cdef}")
 
         conn.commit()
     finally:
@@ -451,7 +486,9 @@ async def get_monthly_data(month: Optional[str] = None):
                 # than 404 — the frontend uses this during sync to boot-strap a
                 # month that has never been saved.
                 return {"month": month, "year": int(month.split("-")[0]), "generated": 0, "exported": 0,
-                        "grid_import": 0, "bat_charge": 0, "bat_discharge": 0, "load": 0, "grid_events": 0, "export_income": 0}
+                        "grid_import": 0, "bat_charge": 0, "bat_discharge": 0, "load": 0, "grid_events": 0,
+                        "export_income": 0, "solar_export": 0, "battery_export": 0, "battery_selfuse": 0,
+                        "solar_export_income": 0, "battery_export_income": 0, "battery_selfuse_value": 0}
             return dict(row)
         else:
             rows = conn.execute("SELECT * FROM monthly_data ORDER BY month").fetchall()
@@ -737,6 +774,14 @@ async def export_rate_log_loop():
 #: Lifetime cumulative export meter (same sensor as monthly exported).
 SLOT_FEEDIN_ENTITY = "sensor.garage_foxess_feedin"
 
+#: Battery discharge meter (day-reset cumulative, like feedin). Used to split
+#: exported energy into solar vs battery (Predbat export arbitrage).
+SLOT_DISCHARGE_ENTITY = "sensor.garage_foxess_bat_discharge"
+
+#: Predbat Agile import-rate entity (in £/kWh, changed per half-hour slot). Used to
+#: value battery discharge that is consumed at home (it avoids paying this import rate).
+PREDBAT_IMPORT_RATE_ENTITY = "sensor.predbat_octopus_a_56db37e8_import_rates"
+
 
 def _monthly_avg_rate_p(month: str) -> float:
     """Average Agile rate (p/kWh) across a month's logged captures; 0 if none."""
@@ -777,6 +822,91 @@ def _slot_bucket_start(dt) -> str:
     """Floor a datetime to the start of its 30-minute slot, as an ISO string."""
     minute = (dt.minute // 30) * 30
     return dt.replace(minute=minute, second=0, microsecond=0).isoformat()
+
+
+def _import_rate_series(values: list) -> list:
+    """Build a sorted [(datetime, rate_p)] series from the Predbat import-rate history.
+
+    The Predbat `...import_rates` sensor reports in £/kWh (e.g. 0.0762 -> 7.62p); it
+    changes on half-hour boundaries. We return rate in p/kWh, oldest first, so callers
+    can look up the rate for any slot (the rate in force at/before that slot).
+    """
+    out = []
+    for p in values:
+        st = p.get("state")
+        lc = p.get("last_changed")
+        if st is None or not lc:
+            continue
+        try:
+            v = float(st)
+        except (ValueError, TypeError):
+            continue
+        if v < 0:
+            continue
+        try:
+            t = datetime.fromisoformat(lc.replace("Z", "+00:00")).astimezone(timezone.utc)
+        except ValueError:
+            continue
+        # Predbat import rates are £/kWh -> p/kWh.
+        out.append((t, v * 100.0))
+    out.sort(key=lambda x: x[0])
+    return out
+
+
+def _import_rate_for_slot(series: list, slot_dt) -> float:
+    """Rate (p/kWh) in force at/before slot_dt from an _import_rate_series, else 0."""
+    best = None
+    for t, rate_p in series:
+        if t <= slot_dt:
+            best = rate_p
+        else:
+            break
+    return best if best is not None else 0.0
+
+
+def _sum_daily_final(values: list, window_start: datetime, window_end: datetime) -> float:
+    """Trusted monthly total for a Predbat daily-cumulative energy meter.
+
+    Predbat's energy counters (import_energy_battery, export_energy, ...) are daily
+    cumulative "today" totals that also OSCILLATE intra-day as it re-simulates every
+    10 min and resets near midnight. So a raw first→last delta is unreliable. Instead
+    we take, per UTC day, the LAST recorded value (the day's settled total), sum those
+    across the window — the smallest surface that is robust to the mid-day wobble.
+    """
+    from collections import defaultdict
+    per_day = defaultdict(list)
+    for p in values:
+        st = p.get("state")
+        lc = p.get("last_changed")
+        if st is None or not lc:
+            continue
+        try:
+            v = float(st)
+        except (ValueError, TypeError):
+            continue
+        if v < 0:
+            continue
+        try:
+            t = datetime.fromisoformat(lc.replace("Z", "+00:00")).astimezone(timezone.utc)
+        except ValueError:
+            continue
+        if t < window_start or t > window_end:
+            continue
+        per_day[t.date()].append((t, v))
+    total = 0.0
+    for day, pts in per_day.items():
+        if not pts:
+            continue
+        pts.sort(key=lambda x: x[0])
+        total += max(0.0, pts[-1][1])
+    return round(total, 3)
+
+
+#: Predbat daily-cumulative energy-balance meters used to separate battery charge origin.
+PREDBAT_IMPORT_ENERGY = "predbat.import_energy"              # grid bought, total
+PREDBAT_IMPORT_ENERGY_BATTERY = "predbat.import_energy_battery"  # grid -> battery
+PREDBAT_IMPORT_ENERGY_HOUSE = "predbat.import_energy_house"   # grid -> house
+PREDBAT_EXPORT_ENERGY = "predbat.export_energy"               # grid sold, total
 
 
 def _feedin_delta_slots(values: list, window_start: datetime, window_end: datetime) -> dict:
@@ -851,10 +981,17 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
     """Repair/top-up the in-flight month's per-half-hour export slots from HA history.
 
     Derives per-slot export kWh from the feedin sensor (a per-day cumulative counter
-    that resets at midnight — handled by _feedin_delta_slots), reconciles the slot sum
-    to the month's authoritative 'exported' figure, prices each slot with the Agile
-    rate logged for it (monthly blend for gaps, £0 before the export contract start),
-    stores rows in export_slot_log, then writes the month's export_income.
+    that resets at midnight — handled by _feedin_delta_slots), prices each slot with the
+    Agile export rate logged for it (monthly blend for gaps, £0 before the export contract
+    start), stores rows in export_slot_log, then writes the month's export_income.
+
+    v1.4.0: also splits each slot's export into SOLAR (panels straight to grid) vs BATTERY
+    (energy that came out of the battery — Predbat export arbitrage). The split uses the
+    battery discharge history per slot: the exported kWh that the battery was discharging
+    at the same time is attributed to the battery, the rest to solar. Battery discharge that
+    is consumed at home (not exported) is valued at the Agile IMPORT rate it avoided, and
+    stored as battery_selfuse_value. Each slot stores its split (discharge_kwh,
+    battery_export_kwh, solar_export_kwh, import_rate_p) and monthly_data gets the totals.
     """
     settings = _get_settings_map()
     export_start_dt = None
@@ -879,45 +1016,126 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
     if end_dt > now:
         end_dt = now
 
-    history = await ha_client.get_history(
-        [SLOT_FEEDIN_ENTITY], month_start.isoformat(), end_dt.isoformat(), None
-    )
+    start_iso = month_start.isoformat()
+    end_iso = end_dt.isoformat()
+    history = await ha_client.get_history([SLOT_FEEDIN_ENTITY], start_iso, end_iso, None)
     feedin_list = history[0] if history else []
     slots = _feedin_delta_slots(feedin_list, month_start, end_dt)
+
+    # Battery discharge per slot (same day-reset cumulative handling).
+    try:
+        dhist = await ha_client.get_history([SLOT_DISCHARGE_ENTITY], start_iso, end_iso, None)
+        discharge_list = dhist[0] if dhist else []
+    except Exception:
+        discharge_list = []
+    discharge_slots = _feedin_delta_slots(discharge_list, month_start, end_dt)
+
+    # Agile import-rate series (Predbat), in p/kWh per slot — for battery self-use value.
+    import_series = []
+    if settings.get("exportRateSource", "fixed") == "agile":
+        try:
+            ihist = await ha_client.get_history([PREDBAT_IMPORT_RATE_ENTITY], start_iso, end_iso, None)
+            import_series = _import_rate_series(ihist[0] if ihist else [])
+        except Exception:
+            import_series = []
+
+    # --- v1.4.0 reconciliation: separate battery CHARGE origin (grid vs solar). ---
+    # Predbat's import_energy_battery tells us how many grid kWh went INTO the battery.
+    # Everything else the battery charged must have come from solar. This is the quantity
+    # that lets us stop double-counting: the solar energy that went into the battery is
+    # NOT part of "solar used at home" (that solar surfaces later as battery discharge),
+    # so we exclude it from solar_used here and let the battery flows bear its value.
+    battery_charge_from_grid = 0.0
+    battery_charge_from_solar = 0.0
+    if settings.get("exportRateSource", "fixed") == "agile":
+        try:
+            baths = await ha_client.get_history(
+                [PREDBAT_IMPORT_ENERGY_BATTERY], start_iso, end_iso, None)
+            battery_charge_from_grid = _sum_daily_final(baths[0] if baths else [], month_start, end_dt)
+        except Exception:
+            battery_charge_from_grid = 0.0
 
     # The per-slot curve (day-reset aware) IS the authoritative export energy for the
     # month. Its sum is the true exported kWh; we price each slot and persist both
     # exported (slot-derived) and export_income on monthly_data so the dashboard shows
-    # one consistent, correct figure.
+    # one consistent, correct figure. We also total the solar/battery split.
     monthly_exported = round(sum(slots.values()), 2)
+    tot_solar_export = 0.0
+    tot_bat_export = 0.0
+    tot_bat_selfuse = 0.0
+    tot_solar_income = 0.0
+    tot_bat_income = 0.0
+    tot_bat_selfuse_value = 0.0
 
     stored = 0
     total_income = 0.0
     conn = get_db()
     try:
+        # Monthly Fox total battery charge + generation (already stored by the daily sync).
+        grow = conn.execute("SELECT bat_charge, generated FROM monthly_data WHERE month = ?", (month,)).fetchone()
+        monthly_bat_charge = float(grow["bat_charge"] or 0.0) if grow else 0.0
+        monthly_generated = float(grow["generated"] or 0.0) if grow else 0.0
+        # Everything the battery charged beyond grid-sourced kWh came from solar.
+        battery_charge_from_solar = round(max(monthly_bat_charge - battery_charge_from_grid, 0.0), 3)
+
         for slot_key, kwh in slots.items():
             slot_dt = datetime.fromisoformat(slot_key)
             rate_p = _rate_for_slot(month, slot_dt, export_start_dt)
             income = round(kwh * rate_p / 100.0, 2) if rate_p and kwh else 0.0
             total_income += income
+
+            # Split this slot's export into solar vs battery.
+            discharge_kwh = discharge_slots.get(slot_key, 0.0)
+            battery_export_kwh = round(min(discharge_kwh, kwh), 4) if discharge_kwh and kwh else 0.0
+            solar_export_kwh = round(max(kwh - battery_export_kwh, 0.0), 4)
+            battery_selfuse_kwh = round(max(discharge_kwh - battery_export_kwh, 0.0), 4)
+            import_rate_p = _import_rate_for_slot(import_series, slot_dt) if import_series else 0.0
+            # Income attribution: export income by split; battery self-use at import rate.
+            solar_income = round(solar_export_kwh * rate_p / 100.0, 2) if rate_p and solar_export_kwh else 0.0
+            battery_income = round(battery_export_kwh * rate_p / 100.0, 2) if rate_p and battery_export_kwh else 0.0
+            selfuse_value = round(battery_selfuse_kwh * import_rate_p / 100.0, 2) if import_rate_p and battery_selfuse_kwh else 0.0
+
+            tot_solar_export += solar_export_kwh
+            tot_bat_export += battery_export_kwh
+            tot_bat_selfuse += battery_selfuse_kwh
+            tot_solar_income += solar_income
+            tot_bat_income += battery_income
+            tot_bat_selfuse_value += selfuse_value
+
             conn.execute(
-                "INSERT OR REPLACE INTO export_slot_log (slot, month, export_kwh, rate_p, updated_at)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (slot_key, month, kwh, rate_p, now_ts()),
+                "INSERT OR REPLACE INTO export_slot_log"
+                " (slot, month, export_kwh, rate_p, discharge_kwh, battery_export_kwh,"
+                "  solar_export_kwh, import_rate_p, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (slot_key, month, kwh, rate_p, discharge_kwh, battery_export_kwh,
+                 solar_export_kwh, import_rate_p, now_ts()),
             )
             stored += 1
         conn.execute(
-            "UPDATE monthly_data SET exported = ?, export_income = ? WHERE month = ?",
-            (monthly_exported, round(total_income, 2), month),
+            "UPDATE monthly_data SET"
+            " exported = ?, export_income = ?,"
+            " solar_export = ?, battery_export = ?, battery_selfuse = ?,"
+            " solar_export_income = ?, battery_export_income = ?, battery_selfuse_value = ?,"
+            " battery_charge_from_grid = ?, battery_charge_from_solar = ?"
+            " WHERE month = ?",
+            (monthly_exported, round(total_income, 2),
+             round(tot_solar_export, 2), round(tot_bat_export, 2), round(tot_bat_selfuse, 2),
+             round(tot_solar_income, 2), round(tot_bat_income, 2), round(tot_bat_selfuse_value, 2),
+             battery_charge_from_grid, battery_charge_from_solar,
+             month),
         )
         conn.commit()
     finally:
         conn.close()
 
     print(f"Export income: rebuilt {stored} slot(s) for {month}, " +
-          f"exported {monthly_exported} kWh -> total £{round(total_income, 2)}")
+          f"exported {monthly_exported} kWh -> £{round(total_income, 2)} "
+          f"({round(tot_solar_export,1)} solar / {round(tot_bat_export,1)} battery export; "
+          f"battery self-use {round(tot_bat_selfuse,1)} kWh = £{round(tot_bat_selfuse_value,2)})")
     return {"month": month, "slots": stored, "exported": monthly_exported,
-            "exportIncome": round(total_income, 2)}
+            "exportIncome": round(total_income, 2),
+            "solarExport": round(tot_solar_export, 2), "batteryExport": round(tot_bat_export, 2),
+            "batterySelfUse": round(tot_bat_selfuse, 2)}
 
 
 async def repair_current_month_export() -> dict:
@@ -1101,28 +1319,54 @@ async def run_daily_ha_sync():
         ts = now_ts()
         for month_key in sorted(all_month_keys):
             existing = conn.execute(
-                "SELECT grid_events, export_income FROM monthly_data WHERE month = ?", (month_key,)
+                "SELECT grid_events, export_income, solar_export, battery_export, battery_selfuse,"
+                " solar_export_income, battery_export_income, battery_selfuse_value,"
+                " battery_charge_from_grid, battery_charge_from_solar"
+                " FROM monthly_data WHERE month = ?", (month_key,)
             ).fetchone()
             grid_events = existing["grid_events"] if existing else 0
             export_income = existing["export_income"] if existing else 0
+            # Preserve the v1.4.0 solar/battery breakdown (written by the export rebuild).
+            solar_export = existing["solar_export"] if existing else 0
+            battery_export = existing["battery_export"] if existing else 0
+            battery_selfuse = existing["battery_selfuse"] if existing else 0
+            solar_export_income = existing["solar_export_income"] if existing else 0
+            battery_export_income = existing["battery_export_income"] if existing else 0
+            battery_selfuse_value = existing["battery_selfuse_value"] if existing else 0
+            battery_charge_from_grid = existing["battery_charge_from_grid"] if existing else 0
+            battery_charge_from_solar = existing["battery_charge_from_solar"] if existing else 0
 
             row = {
                 "month": month_key,
                 "year": int(month_key.split("-")[0]),
                 "grid_events": grid_events,
                 "export_income": export_income,
+                "solar_export": solar_export,
+                "battery_export": battery_export,
+                "battery_selfuse": battery_selfuse,
+                "solar_export_income": solar_export_income,
+                "battery_export_income": battery_export_income,
+                "battery_selfuse_value": battery_selfuse_value,
+                "battery_charge_from_grid": battery_charge_from_grid,
+                "battery_charge_from_solar": battery_charge_from_solar,
             }
             for db_field, entity in MONTH_FIELD_MAP.items():
                 row[db_field] = sums.get(entity, {}).get(month_key, 0)
 
             conn.execute("""
                 INSERT OR REPLACE INTO monthly_data
-                (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, export_income, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load,
+                 grid_events, export_income, solar_export, battery_export, battery_selfuse,
+                 solar_export_income, battery_export_income, battery_selfuse_value,
+                 battery_charge_from_grid, battery_charge_from_solar, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 row["month"], row["year"], row["generated"], row["exported"],
                 row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
-                row["grid_events"], row["export_income"], ts
+                row["grid_events"], row["export_income"], row["solar_export"],
+                row["battery_export"], row["battery_selfuse"], row["solar_export_income"],
+                row["battery_export_income"], row["battery_selfuse_value"],
+                row["battery_charge_from_grid"], row["battery_charge_from_solar"], ts
             ))
         conn.commit()
         print(f"Daily HA sync: stored/updated {len(all_month_keys)} month(s)")
@@ -1167,24 +1411,49 @@ async def run_current_month_refresh():
     try:
         ts = now_ts()
         existing = conn.execute(
-            "SELECT grid_events, export_income FROM monthly_data WHERE month = ?", (month_key,)
+            "SELECT grid_events, export_income, solar_export, battery_export, battery_selfuse,"
+            " solar_export_income, battery_export_income, battery_selfuse_value,"
+            " battery_charge_from_grid, battery_charge_from_solar"
+            " FROM monthly_data WHERE month = ?", (month_key,)
         ).fetchone()
         grid_events = existing["grid_events"] if existing else 0
         export_income = existing["export_income"] if existing else 0
+        # Preserve the v1.4.0 solar/battery breakdown (written by the export rebuild).
+        solar_export = existing["solar_export"] if existing else 0
+        battery_export = existing["battery_export"] if existing else 0
+        battery_selfuse = existing["battery_selfuse"] if existing else 0
+        solar_export_income = existing["solar_export_income"] if existing else 0
+        battery_export_income = existing["battery_export_income"] if existing else 0
+        battery_selfuse_value = existing["battery_selfuse_value"] if existing else 0
+        battery_charge_from_grid = existing["battery_charge_from_grid"] if existing else 0
+        battery_charge_from_solar = existing["battery_charge_from_solar"] if existing else 0
 
         row = {"month": month_key, "year": int(month_key.split("-")[0]),
-               "grid_events": grid_events, "export_income": export_income}
+               "grid_events": grid_events, "export_income": export_income,
+               "solar_export": solar_export, "battery_export": battery_export,
+               "battery_selfuse": battery_selfuse,
+               "solar_export_income": solar_export_income,
+               "battery_export_income": battery_export_income,
+               "battery_selfuse_value": battery_selfuse_value,
+               "battery_charge_from_grid": battery_charge_from_grid,
+               "battery_charge_from_solar": battery_charge_from_solar}
         for db_field, entity in MONTH_FIELD_MAP.items():
             row[db_field] = sums.get(entity, {}).get(month_key, 0)
 
         conn.execute("""
             INSERT OR REPLACE INTO monthly_data
-            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load, grid_events, export_income, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (month, year, generated, exported, grid_import, bat_charge, bat_discharge, load,
+             grid_events, export_income, solar_export, battery_export, battery_selfuse,
+             solar_export_income, battery_export_income, battery_selfuse_value,
+             battery_charge_from_grid, battery_charge_from_solar, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             row["month"], row["year"], row["generated"], row["exported"],
             row["grid_import"], row["bat_charge"], row["bat_discharge"], row["load"],
-            row["grid_events"], row["export_income"], ts
+            row["grid_events"], row["export_income"], row["solar_export"],
+            row["battery_export"], row["battery_selfuse"], row["solar_export_income"],
+            row["battery_export_income"], row["battery_selfuse_value"],
+            row["battery_charge_from_grid"], row["battery_charge_from_solar"], ts
         ))
         conn.commit()
         print(f"Current-month refresh: updated {month_key}")
