@@ -2,6 +2,22 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.3.3] - 2026-11-26
+
+### Fixed
+- **HA history fetch was silently truncated to ~1 day** — the real root cause of the
+  persistently-low export figures. The add-on called `GET /history/period` with `start_time`
+  as a *query* param, but Home Assistant expects the start **in the URL path**
+  (`/api/history/period/{start_time}`); a query `start_time` is ignored and HA defaults to
+  "one day ago". So both the daily sync and the export-slot rebuild only ever saw the most
+  recent day or so. `get_history()` now puts the start in the path and asks for the full
+  recorded history (`significant_changes_only=0`, attributes dropped) — monthly `exported`
+  is now the true total (November 2026 = **71.3 kWh**, not the stored 13.4/23.9).
+
+### Added
+- **App version shown on the Settings page** (badge beside the title, plus `GET /api/version`)
+  so the deployed build is always identifiable at a glance.
+
 ## [1.3.2] - 2026-11-26
 
 ### Fixed

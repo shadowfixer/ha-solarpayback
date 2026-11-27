@@ -244,6 +244,21 @@ button { cursor: pointer; }
 .view-header h1 { font-size: clamp(1.5rem, 6vw, 2rem); }
 .view-actions { display: flex; gap: 8px; }
 
+/* App version badge (Settings header) */
+.app-version-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.app-version-badge[data-loaded="true"] { color: var(--export); border-color: var(--export); }
+.app-version-badge[data-error="true"] { color: var(--bad); border-color: var(--bad); }
+
 /* Cards */
 .card {
   background: var(--surface);

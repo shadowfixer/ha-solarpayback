@@ -34,6 +34,10 @@ DB_PATH = os.environ.get("DB_PATH", "/data/ha-solarpayback.db")
 SUPERVISOR_TOKEN_PATH = os.environ.get("SUPERVISOR_TOKEN_PATH", "/var/run/secrets/hassio-token")
 SUPERVISOR_API = os.environ.get("SUPERVISOR_API", "http://supervisor")
 
+# App version — matched to config.yaml `version`. Keep in sync on every release;
+# shown on the Settings page so the UI makes it obvious which build is running.
+APP_VERSION = "1.3.3"
+
 # HA REST API base (internal, via supervisor)
 HA_API_BASE = f"{SUPERVISOR_API}/core/api"
 
@@ -242,17 +246,24 @@ class HAClient:
         return await self.request("GET", "/states")
 
     async def get_history(self, entity_ids: List[str], start_time: str, end_time: str, period: Optional[str] = None) -> dict:
-        params = {
-            "filter_entity_id": ",".join(entity_ids),
-            "end_time": end_time,
-        }
-        if start_time:
-            params["start_time"] = start_time
-        if period:
-            params["period"] = period
-        # Pass params via aiohttp so they are URL-encoded — ISO timestamps carry a '+'
-        # timezone separator (…T14:21:17+00:00) which must not be decoded as a space.
-        return await self.request("GET", "/history/period", params=params)
+            # HA REST: /api/history/period/{start_timestamp} — the start MUST be in the URL
+            # path. end_time / filter_entity_id are query params. Sending start_time as a
+            # query param is ignored by HA (it defaults to "one day ago"), which silently
+            # truncated long-window history (monthly export came back tiny). Also ask for
+            # every recorded change (not just significant ones) and drop attributes for speed.
+            from urllib.parse import quote
+            path = f"/history/period/{quote(start_time, safe=':+')}"
+            params = {
+                "filter_entity_id": ",".join(entity_ids),
+                "end_time": end_time,
+                "significant_changes_only": "0",
+                "no_attributes": "1",
+            }
+            if period:
+                params["period"] = period
+            # Pass params via aiohttp so they are URL-encoded — ISO timestamps carry a '+'
+            # timezone separator (…T14:21:17+00:00) which must not be decoded as a space.
+            return await self.request("GET", path, params=params)
 
     async def get_statistics(self, entity_ids: List[str], start_time: str, end_time: str) -> dict:
         params = {
@@ -363,7 +374,7 @@ async def lifespan(app: FastAPI):
     print("HA client closed")
 
 
-app = FastAPI(title="HA SolarPayBack API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="HA SolarPayBack API", version=APP_VERSION, lifespan=lifespan)
 
 # CORS for ingress (browser calls same origin, but allow for dev)
 app.add_middleware(
@@ -382,6 +393,15 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok", "db": DB_PATH, "ha_token": bool(ha_client.token)}
+
+
+@app.get("/api/version")
+async def api_version():
+    """Return the deployed app version (matched to config.yaml `version`).
+
+    Shown on the Settings page so the latest deployed build is always identifiable.
+    """
+    return {"version": APP_VERSION}
 
 
 # =============================================================================

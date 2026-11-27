@@ -12,13 +12,34 @@ export class SettingsView {
   }
 
   async render() {
-    await this.loadSettings();
-    this.renderSystemForm();
-    this.renderExportRate();
-    this.renderTariffList();
-    this.renderGridEvents();
-    this.bindEvents();
-  }
+      await this.loadSettings();
+      await this.renderVersion();
+      this.renderSystemForm();
+      this.renderExportRate();
+      this.renderTariffList();
+      this.renderGridEvents();
+      this.bindEvents();
+    }
+
+    // Show the deployed app version in the Settings header so the UI makes it
+    // obvious which build is running (matches config.yaml `version`).
+    async renderVersion() {
+      const badge = document.getElementById('appVersionBadge');
+      if (!badge) return;
+      try {
+        const res = await api.getVersion();
+        if (res && res.version) {
+          badge.textContent = `v${res.version}`;
+          badge.dataset.loaded = 'true';
+        } else {
+          badge.textContent = 'v—';
+          badge.dataset.error = 'true';
+        }
+      } catch (err) {
+        badge.textContent = 'v—';
+        badge.dataset.error = 'true';
+      }
+    }
 
   async renderExportRate() {
     const source = this.settings.exportRateSource || 'fixed';

@@ -37,9 +37,13 @@ export const api = {
   },
 
   // Settings
-  async getSettings() {
-    return this.request('/settings');
-  },
+    async getVersion() {
+      return this.request('/version');
+    },
+
+    async getSettings() {
+      return this.request('/settings');
+    },
 
   async putSettings(settings) {
     return this.request('/settings', { method: 'PUT', body: JSON.stringify(settings) });
