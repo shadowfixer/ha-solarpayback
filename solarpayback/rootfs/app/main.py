@@ -865,25 +865,11 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
     feedin_list = history[0] if history else []
     slots = _feedin_delta_slots(feedin_list, month_start, end_dt)
 
-    # Reconcile the per-slot kWh to the month's authoritative 'exported' total.
-    # The feedin counter resets daily; its per-slot *shape* is reliable, but the run
-    # magnitude can drift from the server's daily-max monthly aggregation, so we scale
-    # the slot curve to equal the stored exported figure.
-    raw_sum = sum(slots.values())
-    conn = get_db()
-    try:
-        exported_row = conn.execute(
-            "SELECT exported FROM monthly_data WHERE month = ?", (month,)
-        ).fetchone()
-    finally:
-        conn.close()
-    monthly_exported = exported_row["exported"] if exported_row and exported_row["exported"] else 0.0
-    scale = 1.0
-    if raw_sum > 0 and monthly_exported and monthly_exported > 0:
-        scale = monthly_exported / raw_sum
-    if abs(scale - 1.0) > 1e-6:
-        for k in slots:
-            slots[k] = round(slots[k] * scale, 4)
+    # The per-slot curve (day-reset aware) IS the authoritative export energy for the
+    # month. Its sum is the true exported kWh; we price each slot and persist both
+    # exported (slot-derived) and export_income on monthly_data so the dashboard shows
+    # one consistent, correct figure.
+    monthly_exported = round(sum(slots.values()), 2)
 
     stored = 0
     total_income = 0.0
@@ -901,16 +887,16 @@ async def rebuild_month_export_slots(month: str, end_time: Optional[str] = None)
             )
             stored += 1
         conn.execute(
-            "UPDATE monthly_data SET export_income = ? WHERE month = ?",
-            (round(total_income, 2), month),
+            "UPDATE monthly_data SET exported = ?, export_income = ? WHERE month = ?",
+            (monthly_exported, round(total_income, 2), month),
         )
         conn.commit()
     finally:
         conn.close()
 
     print(f"Export income: rebuilt {stored} slot(s) for {month}, " +
-          f"exported {round(monthly_exported,2)} kWh -> total £{round(total_income, 2)}")
-    return {"month": month, "slots": stored, "exported": round(monthly_exported, 2),
+          f"exported {monthly_exported} kWh -> total £{round(total_income, 2)}")
+    return {"month": month, "slots": stored, "exported": monthly_exported,
             "exportIncome": round(total_income, 2)}
 
 
@@ -1010,32 +996,40 @@ MONTH_FIELD_MAP = {
 }
 
 def _daily_max_to_monthly(values: list) -> dict:
-    """Compute daily-max -> monthly sums for one entity's history returns.
+    """Compute monthly sums for one entity's history returns.
 
-    Fox ESS sensors are total_increasing (lifetime cumulative). The daily max of
-    the raw history per day gives that day's total; summing daily maxes per month
-    gives the monthly total.
+    Handles BOTH sensor types correctly:
+    - lifetime cumulative (total_increasing): the running total only rises, so
+      summing the positive deltas gives exactly the energy added in the window;
+    - per-day RESETTING counters (Fox ESS `feedin` resets to ~0 just after midnight,
+      and some integrations report per-day cumulative): each day's rise is counted and
+      the reset drop to 0 is skipped, so the monthly sum is still correct.
+
+    (The previous daily-max method assumed the sensor only ever rises across the whole
+    history. For a daily-reset sensor that over-counted the reset and mis-totalled.)
     """
-    daily_max = {}
+    month_map = {}
+    prev_val = None
     for point in values:
         state = point.get("state")
-        if state is None:
+        last_changed = point.get("last_changed")
+        if state is None or not last_changed:
             continue
         try:
             val = float(state)
         except (ValueError, TypeError):
             continue
-        last_changed = point.get("last_changed")
-        if not last_changed:
+        try:
+            t = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
+        except ValueError:
             continue
-        dt = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
-        day_key = dt.strftime("%Y-%m-%d")
-        if day_key not in daily_max or val > daily_max[day_key]:
-            daily_max[day_key] = val
-    month_map = {}
-    for day_key, max_val in daily_max.items():
-        month_key = day_key[:7]
-        month_map[month_key] = month_map.get(month_key, 0) + max_val
+        month_key = t.strftime("%Y-%m")
+        if prev_val is not None and val > prev_val:
+            month_map[month_key] = month_map.get(month_key, 0.0) + (val - prev_val)
+        elif prev_val is None:
+            # First reading: seed the running value but don't count it as energy yet.
+            pass
+        prev_val = val
     return month_map
 
 

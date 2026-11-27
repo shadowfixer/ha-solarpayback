@@ -2,6 +2,26 @@
 
 All notable changes to the **HA SolarPayBack** add-on.
 
+## [1.3.2] - 2026-11-26
+
+### Fixed
+- **Monthly `exported` itself under-counted.** Root cause: `_daily_max_to_monthly` was built
+  for a *lifetime* cumulative sensor, but `feedin` is a **per-day resetting counter** (resets
+  to ~0 at midnight UTC). The monthly aggregation now uses **sum-of-positive-deltas**, which
+  is correct for both lifetime-only-rising and daily-reset meters (the midnight drop to 0 is
+  skipped, each day's rise is counted). Verified against Nov data: the old method stored
+  `exported = 23.9` while the true value is **~45.7 kWh** for 24–27 Nov.
+- **Slot reconciliation now treats the day-reset-aware slot curve as authoritative.** The
+  month's `exported` is now *derived from* the same per-slot logic (and written back to
+  `monthly_data`), instead of being scaled down to the stale stored figure. So `exported`,
+  `export_income`, and the "This Month" card all agree on the same correct number.
+
+### Notes
+- Because the stored `exported` was low (23.9), the previous 1.3.1 figures were conservative
+  (£5.26). With the true ~45.7 kWh exported, the slot-priced export income for Nov will be
+  materially higher (a few pounds more), and the "This Month" Export Income tile updates to
+  match after the next repair.
+
 ## [1.3.1] - 2026-11-26
 
 ### Fixed
